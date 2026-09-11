@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{% block title %}Sahayog{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="container">
+    <a class="brand" href="{{ url_for('index') }}"><span class="mark">S</span> {{ t('app_name') }}</a>
+    <div class="nav-user">
+      <div class="lang-toggle">
+        <a class="{{ 'active' if lang == 'en' }}" href="{{ url_for('set_language', code='en') }}">EN</a>
+        <a class="{{ 'active' if lang == 'hi' }}" href="{{ url_for('set_language', code='hi') }}">हिं</a>
+      </div>
+      {% if current_user %}
+        <span class="tag-role">{{ current_user['name'] }}</span>
+        <a href="{{ url_for('logout') }}" style="color:#E9E2CF; font-size:14px;">{{ t('logout') }}</a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<div class="container" style="padding-top:20px;">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ 'error' if category == 'error' else category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+</div>
+
+{% block content %}{% endblock %}
+
+<footer class="site-footer"><div class="container">Sahayog &mdash; a working prototype for SIH26089 (Ministry of Cooperation / NCCT). Not an official government service.</div></footer>
+
+</body>
+</html>

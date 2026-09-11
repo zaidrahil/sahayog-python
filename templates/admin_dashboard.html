@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Federation dashboard - Sahayog{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="eyebrow">MINISTRY OF COOPERATION &middot; NCCT</div>
+  <h1>{{ t('admin_dashboard') }}</h1>
+</div>
+
+<div class="grid grid-4" style="margin-bottom:24px;">
+  <div class="stat-tile"><div class="stat-value">{{ stats.verified_workers }} / {{ stats.total_workers }}</div><div class="stat-label">Verified workers</div></div>
+  <div class="stat-tile"><div class="stat-value">{{ stats.total_customers }}</div><div class="stat-label">Total customers</div></div>
+  <div class="stat-tile"><div class="stat-value">{{ stats.completed_bookings }} / {{ stats.total_bookings }}</div><div class="stat-label">Bookings completed</div></div>
+  <div class="stat-tile"><div class="stat-value">{{ stats.completion_rate }}%</div><div class="stat-label">Completion rate</div></div>
+  <div class="stat-tile"><div class="stat-value">&#8377;{{ stats.total_revenue }}</div><div class="stat-label">Total revenue</div></div>
+  <div class="stat-tile"><div class="stat-value">&#8377;{{ stats.total_commission }}</div><div class="stat-label">Federation commission</div></div>
+  <div class="stat-tile"><div class="stat-value">&#8377;{{ stats.total_welfare }}</div><div class="stat-label">Worker welfare contributions</div></div>
+  <div class="stat-tile"><div class="stat-value">{{ stats.avg_rating or '-' }}</div><div class="stat-label">Avg. worker rating</div></div>
+</div>
+
+<div class="grid grid-2" style="align-items:start;">
+  <div class="card">
+    <h3>{{ t('admin_pending_workers') }}</h3>
+    {% if pending_workers|length == 0 %}
+      <div class="empty-state">{{ t('no_pending_workers') }}</div>
+    {% else %}
+      {% for w in pending_workers %}
+        <div class="flex-between" style="padding:10px 0; border-bottom:1px solid var(--color-border);">
+          <div>
+            <strong>{{ w['name'] }}</strong>
+            <div class="help-text">{{ w['skills'].replace(',', ', ') }}</div>
+          </div>
+          <form method="POST" action="{{ url_for('admin_verify', worker_id=w['id']) }}">
+            <button class="btn btn-sm btn-primary" type="submit">{{ t('verify_action') }}</button>
+          </form>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Bookings by category</h3>
+    {% if bookings_by_category|length == 0 %}
+      <div class="empty-state">No bookings yet.</div>
+    {% else %}
+      {% for row in bookings_by_category %}
+        <div class="flex-between" style="padding:6px 0; border-bottom:1px solid var(--color-border);">
+          <span>{{ category_label(row['category']) if category_label is defined else row['category'] }}</span>
+          <strong>{{ row['c'] }}</strong>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <div class="flex-between">
+    <h3 style="margin:0;">{{ t('admin_forecast') }}</h3>
+    <span class="help-text">AI-based workforce allocation, computed from booking history</span>
+  </div>
+  <table>
+    <thead><tr><th>Service</th><th>Time slot</th><th>Observed</th><th>Expected next period</th><th>Recommended workers</th></tr></thead>
+    <tbody>
+      {% if forecast|length == 0 %}
+        <tr><td colspan="5" class="empty-state">Not enough booking history yet to forecast demand.</td></tr>
+      {% else %}
+        {% for f in forecast %}
+          <tr>
+            <td>{{ f.label }}</td>
+            <td>{{ f.slot }}</td>
+            <td>{{ f.observed }}</td>
+            <td>{{ f.expected }}</td>
+            <td>{{ f.recommended_workers }}</td>
+          </tr>
+        {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h3>All workers</h3>
+  <table>
+    <thead><tr><th>Name</th><th>Skills</th><th>Status</th><th>Rating</th><th>Welfare wallet</th></tr></thead>
+    <tbody>
+      {% for w in all_workers %}
+        <tr>
+          <td>{{ w['name'] }}</td>
+          <td>{{ w['skills'].replace(',', ', ') }}</td>
+          <td><span class="badge badge-{{ 'verified' if w['verified'] else 'unverified' }}">{{ 'Verified' if w['verified'] else 'Pending' }}</span></td>
+          <td>{% if w['rating_count'] %}{{ w['rating'] }} &#9733; ({{ w['rating_count'] }}){% else %}-{% endif %}</td>
+          <td>&#8377;{{ w['welfare_wallet'] }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

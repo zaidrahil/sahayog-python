@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}My jobs - Sahayog{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="eyebrow">WORKER</div>
+  <h1>{{ t('worker_dashboard') }}</h1>
+</div>
+
+{% if not profile['verified'] %}
+  <div class="alert alert-info">Your profile is pending verification by your cooperative federation. You'll be matched to jobs once an admin verifies your Aadhaar e-KYC and skill certificate.</div>
+{% endif %}
+
+<div class="grid grid-3" style="margin-bottom:20px;">
+  <div class="stat-tile">
+    <div class="stat-value">{% if profile['rating_count'] %}{{ profile['rating'] }} &#9733; ({{ profile['rating_count'] }}){% else %}No ratings yet{% endif %}</div>
+    <div class="stat-label">{{ t('worker_rating') }}</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-value">&#8377;{{ profile['welfare_wallet'] }}</div>
+    <div class="stat-label">{{ t('worker_welfare_wallet') }}</div>
+  </div>
+  <div class="stat-tile">
+    <form method="POST" action="{{ url_for('worker_availability') }}" onchange="this.submit()">
+      <div class="flex-between">
+        <div>
+          <div class="stat-value">{{ 'Yes' if profile['available'] else 'No' }}</div>
+          <div class="stat-label">{{ t('worker_available') }}</div>
+        </div>
+        <input type="checkbox" name="available" {{ 'checked' if profile['available'] }} style="width:auto;" />
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Assigned jobs</h3>
+  {% if bookings|length == 0 %}
+    <div class="empty-state">No jobs assigned yet. Jobs appear here automatically when a nearby customer books your skill.</div>
+  {% else %}
+    {% for b in bookings %}
+      <div>
+        <div class="flex-between">
+          <strong>{{ category_label(b['category']) }}</strong>
+          <span>
+            <span class="badge badge-{{ b['status'] }}">{{ b['status'] }}</span>
+            {% if b['urgent'] %}<span class="badge badge-urgent">urgent</span>{% endif %}
+          </span>
+        </div>
+        <p class="muted" style="margin:6px 0;">{{ b['description'] }}</p>
+        <p class="help-text">Requested {{ b['created_at'][:16] }} &middot; {% if b['distance_km'] is not none %}{{ b['distance_km'] }} km away{% else %}distance unknown{% endif %}</p>
+
+        {% if b['status'] == 'matched' %}
+          <form method="POST" action="{{ url_for('worker_accept', booking_id=b['id']) }}" style="margin-top:8px;">
+            <button class="btn btn-sm btn-primary" type="submit">Accept</button>
+          </form>
+        {% elif b['status'] == 'accepted' %}
+          <form method="POST" action="{{ url_for('worker_complete', booking_id=b['id']) }}" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+            <input type="number" name="price" placeholder="Final price (Rs.)" min="1" style="max-width:180px;" required />
+            <button class="btn btn-sm btn-secondary" type="submit">Mark completed</button>
+          </form>
+        {% endif %}
+      </div>
+      {% if not loop.last %}<hr class="divider" />{% endif %}
+    {% endfor %}
+  {% endif %}
+</div>
+
+{% endblock %}

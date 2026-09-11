@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Sahayog - Cooperative Gig Services Platform{% endblock %}
+{% block content %}
+
+<section class="hero">
+  <div class="container">
+    <h1>{{ t('hero_title') }}</h1>
+    <p class="lede">{{ t('hero_lede') }}</p>
+    <div class="stat-strip">
+      <div><div class="num">{{ verified_worker_count }}</div><div class="lbl">verified cooperative workers</div></div>
+      <div><div class="num">{{ completed_bookings }}</div><div class="lbl">services delivered</div></div>
+      <div><div class="num">8%</div><div class="lbl">platform commission (vs 20-30% elsewhere)</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">Services available</h2>
+    <div class="category-grid">
+      {% for cat_id, label in categories %}
+        <div class="category-tile">{{ label }}</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0;">
+  <div class="container">
+    <div class="auth-shell card">
+      <div class="tab-row">
+        <button type="button" id="tab-login" class="active" onclick="switchTab('login')">{{ t('login_tab') }}</button>
+        <button type="button" id="tab-register" onclick="switchTab('register')">{{ t('register_tab') }}</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <form id="login-form" method="POST" action="{{ url_for('login') }}">
+        <div class="field">
+          <label>{{ t('field_phone') }}</label>
+          <input type="text" name="phone" placeholder="e.g. 9333333331" required />
+        </div>
+        <div class="field">
+          <label>{{ t('field_password') }}</label>
+          <input type="password" name="password" required />
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">{{ t('submit_login') }}</button>
+        <p class="help-text" style="margin-top:14px;">
+          Demo accounts &mdash; Admin: 9000000000 / admin123 &nbsp;|&nbsp;
+          Worker: 9111111111 / worker123 &nbsp;|&nbsp;
+          Customer: 9333333331 / customer123
+        </p>
+      </form>
+
+      <!-- REGISTER FORM -->
+      <form id="register-form" method="POST" action="{{ url_for('register') }}" style="display:none;">
+        <fieldset class="chip-select" style="margin-bottom:20px;">
+          <label class="chip"><input type="radio" name="role" value="customer" checked onchange="onRoleChange()"> {{ t('role_customer') }}</label>
+          <label class="chip"><input type="radio" name="role" value="worker" onchange="onRoleChange()"> {{ t('role_worker') }}</label>
+        </fieldset>
+
+        <div class="field">
+          <label>{{ t('field_name') }}</label>
+          <input type="text" name="name" required />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>{{ t('field_phone') }}</label>
+            <input type="text" name="phone" required />
+          </div>
+          <div class="field">
+            <label>{{ t('field_password') }}</label>
+            <input type="password" name="password" required minlength="4" />
+          </div>
+        </div>
+
+        <div class="field" id="skills-field" style="display:none;">
+          <label>{{ t('field_skills') }}</label>
+          <div class="chip-select">
+            {% for cat_id, label in categories %}
+              <label class="chip"><input type="checkbox" name="skills" value="{{ cat_id }}"> {{ label }}</label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="field">
+          <label>{{ t('field_language') }}</label>
+          <select name="language">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी (Hindi)</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary btn-block" type="submit">{{ t('submit_register') }}</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<script>
+  function switchTab(tab) {
+    document.getElementById("tab-login").classList.toggle("active", tab === "login");
+    document.getElementById("tab-register").classList.toggle("active", tab === "register");
+    document.getElementById("login-form").style.display = tab === "login" ? "block" : "none";
+    document.getElementById("register-form").style.display = tab === "register" ? "block" : "none";
+  }
+  function onRoleChange() {
+    const workerSelected = document.querySelector('input[name="role"]:checked').value === "worker";
+    document.getElementById("skills-field").style.display = workerSelected ? "block" : "none";
+  }
+</script>
+
+{% endblock %}

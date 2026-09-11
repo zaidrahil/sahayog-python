@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}My bookings - Sahayog{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="eyebrow">CUSTOMER</div>
+  <h1>{{ t('customer_dashboard') }}</h1>
+</div>
+
+<div class="grid grid-2" style="align-items:start;">
+  <div class="card">
+    <h3>{{ t('book_new') }}</h3>
+    <form method="POST" action="{{ url_for('customer_book') }}">
+      <div class="field">
+        <label>{{ t('field_category') }}</label>
+        <select name="category" required>
+          {% for cat_id, label in categories %}
+            <option value="{{ cat_id }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>{{ t('field_description') }}</label>
+        <textarea name="description" rows="3" placeholder="e.g. Ceiling fan making a grinding noise"></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Latitude</label>
+          <input type="text" name="lat" value="17.4450" required />
+        </div>
+        <div class="field">
+          <label>Longitude</label>
+          <input type="text" name="lng" value="78.3950" required />
+        </div>
+      </div>
+      <p class="help-text">Demo tip: use lat 17.44-17.45 / lng 78.38-78.40 (Hyderabad) to match seeded workers, or 18.51-18.57 / 73.85-73.91 (Pune).</p>
+      <div class="field checkbox-row">
+        <input type="checkbox" name="urgent" id="urgent" />
+        <label for="urgent" style="margin:0;">{{ t('field_urgent') }}</label>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">{{ t('submit_booking') }}</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Booking history</h3>
+    {% if bookings|length == 0 %}
+      <div class="empty-state">{{ t('no_bookings') }}</div>
+    {% else %}
+      {% for b in bookings %}
+        <div>
+          <div class="flex-between">
+            <strong>{{ category_label(b['category']) }}</strong>
+            <span>
+              <span class="badge badge-{{ b['status'] }}">{{ b['status'] }}</span>
+              {% if b['urgent'] %}<span class="badge badge-urgent">urgent</span>{% endif %}
+            </span>
+          </div>
+          <p class="muted" style="margin:6px 0;">{{ b['description'] }}</p>
+          <p class="help-text">
+            Booked {{ b['created_at'][:16] }}
+            {% if b['distance_km'] is not none %} &middot; matched worker {{ b['distance_km'] }} km away{% endif %}
+            {% if b['price'] %} &middot; &#8377;{{ b['price'] }}{% endif %}
+          </p>
+          {% if b['status'] == 'completed' %}
+            <div style="margin-top:8px; display:flex; gap:8px;">
+              <form method="POST" action="{{ url_for('customer_pay', booking_id=b['id']) }}">
+                <button class="btn btn-sm btn-ghost" type="submit">Pay now</button>
+              </form>
+              <button class="btn btn-sm btn-secondary" type="button" onclick="openRateForm('{{ b['id'] }}')">Rate</button>
+            </div>
+            <form id="rate-form-{{ b['id'] }}" method="POST" action="{{ url_for('customer_rate', booking_id=b['id']) }}" style="display:none; margin-top:10px; background:var(--color-bg); padding:12px; border-radius:8px;">
+              <div class="field">
+                <label>Stars</label>
+                <select name="stars"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select>
+              </div>
+              <div class="field">
+                <label>Comment (optional)</label>
+                <textarea name="comment" rows="2"></textarea>
+              </div>
+              <button class="btn btn-sm btn-primary" type="submit">Submit rating</button>
+            </form>
+          {% endif %}
+        </div>
+        {% if not loop.last %}<hr class="divider" />{% endif %}
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  function openRateForm(id) {
+    document.getElementById('rate-form-' + id).style.display = 'block';
+  }
+</script>
+
+{% endblock %}
