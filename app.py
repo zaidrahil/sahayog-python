@@ -770,6 +770,7 @@ def admin_dashboard():
         "SELECT category, COUNT(*) AS c FROM bookings GROUP BY category ORDER BY c DESC"
     ).fetchall()
 
+    # Master & Pending Workers
     pending_workers = conn.execute(
         """SELECT workers.*, users.name AS name FROM workers
            JOIN users ON users.id = workers.user_id
@@ -782,11 +783,95 @@ def admin_dashboard():
            ORDER BY workers.verified ASC, users.name ASC"""
     ).fetchall()
 
+    # Central Fleet Geolocation Pins
+    workers_geo = conn.execute(
+        """SELECT workers.id, workers.lat, workers.lng, workers.skills, workers.rating,
+                  workers.available, workers.verified, workers.retraining_status, users.name, users.phone
+           FROM workers
+           JOIN users ON users.id = workers.user_id
+           WHERE workers.lat IS NOT NULL"""
+    ).fetchall()
+
+    worker_pins = [
+        {
+            "id": w["id"],
+            "name": w["name"],
+            "phone": w["phone"],
+            "lat": w["lat"],
+            "lng": w["lng"],
+            "skills": [category_label(s) for s in w["skills"].split(",")],
+            "rating": w["rating"],
+            "available": bool(w["available"]),
+            "verified": bool(w["verified"]),
+            "retraining_status": w["retraining_status"] if "retraining_status" in w.keys() and w["retraining_status"] else "none"
+        }
+        for w in workers_geo
+    ]
+
+    # Active Job Pins
+    active_jobs = conn.execute(
+        """SELECT bookings.id, bookings.category, bookings.lat, bookings.lng, bookings.status,
+                  bookings.price, users.name as customer_name
+           FROM bookings
+           JOIN users ON users.id = bookings.customer_id
+           WHERE bookings.status IN ('matched', 'accepted') AND bookings.lat IS NOT NULL"""
+    ).fetchall()
+
+    active_job_pins = [
+        {
+            "id": j["id"],
+            "category": category_label(j["category"]),
+            "lat": j["lat"],
+            "lng": j["lng"],
+            "status": j["status"],
+            "customer_name": j["customer_name"]
+        }
+        for j in active_jobs
+    ]
+
+    # Financial Settlement Ledger
+    payments_ledger = conn.execute(
+        """SELECT payments.*, bookings.category, customer_users.name AS customer_name,
+                  worker_users.name AS worker_name
+           FROM payments
+           JOIN bookings ON bookings.id = payments.booking_id
+           JOIN users AS customer_users ON customer_users.id = bookings.customer_id
+           JOIN workers ON workers.id = bookings.worker_id
+           JOIN users AS worker_users ON worker_users.id = workers.user_id
+           ORDER BY payments.created_at DESC
+           LIMIT 50"""
+    ).fetchall()
+
+    # 5% Worker Welfare Disbursals Ledger
+    welfare_disbursals = conn.execute(
+        """SELECT welfare_disbursals.*, users.name AS worker_name, workers.welfare_wallet
+           FROM welfare_disbursals
+           JOIN workers ON workers.id = welfare_disbursals.worker_id
+           JOIN users ON users.id = workers.user_id
+           ORDER BY welfare_disbursals.disbursed_at DESC"""
+    ).fetchall()
+
+    total_disbursed_row = conn.execute(
+        "SELECT COALESCE(SUM(amount), 0) AS total_disbursed FROM welfare_disbursals"
+    ).fetchone()
+    total_disbursed = total_disbursed_row["total_disbursed"] if total_disbursed_row else 0
+
+    # NCCT Retraining Candidate Workers (Rating < 4.0 or flagged)
+    retraining_workers = conn.execute(
+        """SELECT workers.*, users.name AS name, users.phone AS phone
+           FROM workers
+           JOIN users ON users.id = workers.user_id
+           WHERE (workers.retraining_status IS NOT NULL AND workers.retraining_status != 'none')
+              OR (workers.rating_count > 0 AND workers.rating < 4.0)
+           ORDER BY workers.rating ASC"""
+    ).fetchall()
+
     all_bookings = conn.execute("SELECT category, created_at FROM bookings").fetchall()
     forecast = forecast_demand(all_bookings)
 
     conn.close()
 
+    net_welfare = round(revenue_row["welfare"] - total_disbursed, 2)
     stats = {
         "total_workers": total_workers,
         "verified_workers": verified_workers,
@@ -796,6 +881,8 @@ def admin_dashboard():
         "completion_rate": round(completed_bookings / total_bookings * 100) if total_bookings else 0,
         "total_revenue": revenue_row["revenue"],
         "total_welfare": revenue_row["welfare"],
+        "total_disbursed": total_disbursed,
+        "net_welfare": net_welfare if net_welfare > 0 else 0,
         "total_commission": revenue_row["commission"],
         "avg_rating": round(avg_rating_row["avg_rating"], 2) if avg_rating_row["avg_rating"] else None,
     }
@@ -807,6 +894,12 @@ def admin_dashboard():
         pending_workers=pending_workers,
         all_workers=all_workers,
         forecast=forecast[:12],
+        worker_pins=worker_pins,
+        active_job_pins=active_job_pins,
+        payments_ledger=payments_ledger,
+        welfare_disbursals=welfare_disbursals,
+        retraining_workers=retraining_workers,
+        category_label=category_label,
     )
 
 
@@ -898,6 +991,99 @@ def admin_verify(worker_id):
     conn.close()
     flash("Worker verified! 4-Pillar Accreditation granted and Cold-Start boost activated.", "success")
     return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/welfare/disburse", methods=["POST"])
+def admin_welfare_disburse():
+    redirect_response = require_role("admin")
+    if redirect_response:
+        return redirect_response
+
+    worker_id = request.form.get("worker_id")
+    grant_type = request.form.get("grant_type", "Healthcare Emergency Assistance").strip()
+    amount_raw = request.form.get("amount", "0").strip()
+    officer_notes = request.form.get("officer_notes", "").strip()
+
+    try:
+        amount = float(amount_raw)
+    except ValueError:
+        amount = 0.0
+
+    if not worker_id or amount <= 0:
+        flash("Please select a valid worker and enter a positive grant amount.", "error")
+        return redirect(url_for("admin_dashboard") + "#welfare")
+
+    conn = get_connection()
+    worker = conn.execute(
+        "SELECT workers.*, users.name FROM workers JOIN users ON users.id = workers.user_id WHERE workers.id = ?",
+        (worker_id,)
+    ).fetchone()
+
+    if not worker:
+        conn.close()
+        flash("Worker not found.", "error")
+        return redirect(url_for("admin_dashboard") + "#welfare")
+
+    disbursal_id = f"wgrant-{random.randint(1000, 9999)}"
+    conn.execute(
+        """INSERT INTO welfare_disbursals (id, worker_id, grant_type, amount, officer_notes, disbursed_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (disbursal_id, worker_id, grant_type, amount, officer_notes, now())
+    )
+    conn.commit()
+    conn.close()
+
+    flash(f"Welfare Grant of Rs.{amount} approved for {worker['name']} ({grant_type}). Disbursal receipt logged.", "success")
+    return redirect(url_for("admin_dashboard") + "#welfare")
+
+
+@app.route("/admin/worker/<worker_id>/retrain", methods=["POST"])
+def admin_worker_retrain(worker_id):
+    redirect_response = require_role("admin")
+    if redirect_response:
+        return redirect_response
+
+    training_module = request.form.get("module", "NCCT Module 4 - Advanced Trade Standards & Customer Protocol").strip()
+    conn = get_connection()
+    worker = conn.execute("SELECT workers.*, users.name FROM workers JOIN users ON users.id = workers.user_id WHERE workers.id = ?", (worker_id,)).fetchone()
+    if not worker:
+        conn.close()
+        flash("Worker not found.", "error")
+        return redirect(url_for("admin_dashboard") + "#retraining")
+
+    conn.execute(
+        "UPDATE workers SET retraining_status = 'assigned' WHERE id = ?",
+        (worker_id,)
+    )
+    conn.commit()
+    conn.close()
+
+    flash(f"Worker {worker['name']} assigned to {training_module} at Hyderabad Regional Co-op Institute.", "info")
+    return redirect(url_for("admin_dashboard") + "#retraining")
+
+
+@app.route("/admin/worker/<worker_id>/clear_retrain", methods=["POST"])
+def admin_worker_clear_retrain(worker_id):
+    redirect_response = require_role("admin")
+    if redirect_response:
+        return redirect_response
+
+    conn = get_connection()
+    worker = conn.execute("SELECT workers.*, users.name FROM workers JOIN users ON users.id = workers.user_id WHERE workers.id = ?", (worker_id,)).fetchone()
+    if not worker:
+        conn.close()
+        flash("Worker not found.", "error")
+        return redirect(url_for("admin_dashboard") + "#retraining")
+
+    conn.execute(
+        "UPDATE workers SET retraining_status = 'none' WHERE id = ?",
+        (worker_id,)
+    )
+    conn.commit()
+    conn.close()
+
+    flash(f"NCCT Refresher Course completed! {worker['name']} recertified for full active dispatch.", "success")
+    return redirect(url_for("admin_dashboard") + "#retraining")
 
 
 # ---------------------------------------------------------------------------

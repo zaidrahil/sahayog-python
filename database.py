@@ -114,6 +114,15 @@ CREATE TABLE IF NOT EXISTS ratings (
     comment TEXT,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS welfare_disbursals (
+    id TEXT PRIMARY KEY,
+    worker_id TEXT NOT NULL REFERENCES workers(id),
+    grant_type TEXT NOT NULL,
+    amount REAL NOT NULL,
+    officer_notes TEXT,
+    disbursed_at TEXT NOT NULL
+);
 """
 
 # The ten worker categories named explicitly in the SIH26089 problem statement.
@@ -227,6 +236,32 @@ def init_db():
                tools_verified = 1, verification_status = 'submitted'
            WHERE verified = 0 AND (coop_id IS NULL OR coop_id = '')"""
     )
+
+    # Ensure welfare_disbursals table exists
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS welfare_disbursals (
+            id TEXT PRIMARY KEY,
+            worker_id TEXT NOT NULL REFERENCES workers(id),
+            grant_type TEXT NOT NULL,
+            amount REAL NOT NULL,
+            officer_notes TEXT,
+            disbursed_at TEXT NOT NULL
+        )"""
+    )
+    w_cols = [r["name"] for r in conn.execute("PRAGMA table_info(workers)").fetchall()]
+    if "retraining_status" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN retraining_status TEXT DEFAULT 'none'")
+
+    # Seed sample welfare disbursal if empty
+    disbursal_count = conn.execute("SELECT COUNT(*) as c FROM welfare_disbursals").fetchone()["c"]
+    if disbursal_count == 0:
+        sample_w = conn.execute("SELECT id FROM workers WHERE verified = 1 LIMIT 1").fetchone()
+        if sample_w:
+            conn.execute(
+                """INSERT INTO welfare_disbursals (id, worker_id, grant_type, amount, officer_notes, disbursed_at)
+                   VALUES ('wgrant-1001', ?, 'Emergency Medical Assistance', 2500.0, 'Approved for hospitalization bill co-payment under Sahayog Cooperative Welfare bylaws.', '2026-08-20T14:30:00')""",
+                (sample_w["id"],)
+            )
 
     conn.commit()
     conn.close()
