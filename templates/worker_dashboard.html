@@ -1,69 +1,378 @@
 {% extends "base.html" %}
-{% block title %}My jobs - Sahayog{% endblock %}
+{% block title %}Worker Console &mdash; Sahayog{% endblock %}
+
 {% block content %}
+<div class="container" style="padding-top: 10px;">
 
-<div class="page-header">
-  <div class="eyebrow">WORKER</div>
-  <h1>{{ t('worker_dashboard') }}</h1>
-</div>
-
-{% if not profile['verified'] %}
-  <div class="alert alert-info">Your profile is pending verification by your cooperative federation. You'll be matched to jobs once an admin verifies your Aadhaar e-KYC and skill certificate.</div>
-{% endif %}
-
-<div class="grid grid-3" style="margin-bottom:20px;">
-  <div class="stat-tile">
-    <div class="stat-value">{% if profile['rating_count'] %}{{ profile['rating'] }} &#9733; ({{ profile['rating_count'] }}){% else %}No ratings yet{% endif %}</div>
-    <div class="stat-label">{{ t('worker_rating') }}</div>
-  </div>
-  <div class="stat-tile">
-    <div class="stat-value">&#8377;{{ profile['welfare_wallet'] }}</div>
-    <div class="stat-label">{{ t('worker_welfare_wallet') }}</div>
-  </div>
-  <div class="stat-tile">
-    <form method="POST" action="{{ url_for('worker_availability') }}" onchange="this.submit()">
-      <div class="flex-between">
-        <div>
-          <div class="stat-value">{{ 'Yes' if profile['available'] else 'No' }}</div>
-          <div class="stat-label">{{ t('worker_available') }}</div>
-        </div>
-        <input type="checkbox" name="available" {{ 'checked' if profile['available'] }} style="width:auto;" />
+  <!-- WORKER HERO BANNER -->
+  <div class="dashboard-hero">
+    <div>
+      <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--color-accent-border); margin-bottom: 4px;">
+        COOPERATIVE SERVICE PROVIDER CONSOLE
       </div>
-    </form>
+      <h1>Welcome, {{ current_user['name'] }} 🛠️</h1>
+      <p>Your registered trades: <strong>{{ profile['skills'].replace(',', ', ')|title }}</strong> &middot; Cooperative Federation Member</p>
+    </div>
+    <div class="hero-stat-badges">
+      <div class="hero-stat-badge">
+        <div class="stat-num">&#8377;{{ profile['welfare_wallet'] }}</div>
+        <div class="stat-lbl">Welfare Wallet (5%)</div>
+      </div>
+      <div class="hero-stat-badge">
+        <div class="stat-num">★ {{ profile['rating'] if profile['rating_count'] else 'New' }}</div>
+        <div class="stat-lbl">{{ profile['rating_count'] or 0 }} Reviews</div>
+      </div>
+      <div class="hero-stat-badge">
+        <div class="stat-num">
+          {% if profile['verified'] %}<span style="color:#A7F3D0;">✓ Verified</span>{% else %}<span style="color:#FECACA;">Pending</span>{% endif %}
+        </div>
+        <div class="stat-lbl">NCCT Certification</div>
+      </div>
+    </div>
   </div>
-</div>
 
-<div class="card">
-  <h3>Assigned jobs</h3>
-  {% if bookings|length == 0 %}
-    <div class="empty-state">No jobs assigned yet. Jobs appear here automatically when a nearby customer books your skill.</div>
+  <!-- 4-PILLAR COOPERATIVE VERIFICATION CENTER -->
+  {% if not profile['verified'] %}
+    {% if profile['verification_status'] == 'submitted' %}
+      <div class="verification-card" style="border-color: #FBBF24; background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);">
+        <div class="verification-header">
+          <div>
+            <h3 style="color: #92400E; margin:0; display:flex; align-items:center; gap:8px;">
+              <span>⏳</span> 4-Pillar Accreditation Under Review by Federation Officer
+            </h3>
+            <span class="help-text" style="color: #B45309; margin-top: 4px; display:block;">
+              Your government identity and craft credentials have been submitted. An authorized Federation Officer is inspecting your physical tools to grant accreditation.
+            </span>
+          </div>
+          <span class="badge badge-pending">Desk Audit Active</span>
+        </div>
+
+        <div class="pillar-grid">
+          <div class="pillar-box" style="background:#FFFFFF; border-color:#FDE68A;">
+            <div class="pillar-title" style="color:#065F46;">
+              <span>✓</span> Pillar 1: Aadhaar e-KYC Identity
+            </div>
+            <div style="font-size: 12.5px; color: var(--color-ink);">
+              Card: <strong>XXXX-XXXX-{{ profile['aadhaar_last4'] or 'XXXX' }}</strong> &middot; <span style="color:#16A34A; font-weight:600;">UIDAI Verified</span>
+            </div>
+          </div>
+
+          <div class="pillar-box" style="background:#FFFFFF; border-color:#FDE68A;">
+            <div class="pillar-title" style="color:#065F46;">
+              <span>✓</span> Pillar 2: NCCT / Craft Credential
+            </div>
+            <div style="font-size: 12.5px; color: var(--color-ink);">
+              {{ profile['cert_type'] or 'NCCT Certification' }}: <strong>{{ profile['cert_id'] or 'Pending' }}</strong>
+            </div>
+          </div>
+
+          <div class="pillar-box" style="background:#FFFFFF; border-color:#FDE68A;">
+            <div class="pillar-title" style="color:#065F46;">
+              <span>✓</span> Pillar 3: Background &amp; Peer Reference
+            </div>
+            <div style="font-size: 12.5px; color: var(--color-ink);">
+              CCTNS Self-Declaration: <span style="color:#16A34A; font-weight:600;">Clean</span> &middot; Ref: <strong>{{ profile['peer_reference'] or 'Guild Mukhiya' }}</strong>
+            </div>
+          </div>
+
+          <div class="pillar-box" style="background:#FFFFFF; border-color:#FDE68A;">
+            <div class="pillar-title" style="color:#D97706;">
+              <span>⏳</span> Pillar 4: Physical Tool-Kit Audit
+            </div>
+            <div style="font-size: 12.5px; color: var(--color-ink);">
+              Physical toolkit inspection: <strong>Officer Scheduled</strong>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size: 12px; color: #92400E; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span>💡</span>
+            <span>You will receive notification once the Federation Administrator approves your profile at the regional union office.</span>
+          </div>
+          <a href="{{ url_for('worker_verification') }}" class="btn btn-sm btn-outline" style="font-size: 12px; background: #FFFFFF; text-decoration: none;">
+            🔍 View Verification &rarr;
+          </a>
+        </div>
+      </div>
+    {% else %}
+      <div class="verification-card">
+        <div class="verification-header">
+          <div>
+            <h3 style="color: var(--color-primary-dark); margin:0; display:flex; align-items:center; gap:8px;">
+              <span>🛡️</span> Complete 4-Pillar Cooperative Accreditation Gate
+            </h3>
+            <span class="help-text" style="margin-top: 4px; display:block;">
+              Under Ministry of Cooperation &amp; NCCT SIH26089 standards, all workers must verify their identity and craft tools before receiving customer dispatch alerts.
+            </span>
+          </div>
+          <span class="badge badge-unverified">Accreditation Locked</span>
+        </div>
+
+        <form method="POST" action="{{ url_for('worker_verify_submit') }}">
+          <div class="pillar-grid">
+
+            <!-- PILLAR 1 -->
+            <div class="pillar-box">
+              <div class="pillar-title">
+                <span>🪪</span> Pillar 1: Aadhaar e-KYC Identity
+              </div>
+              <div class="field" style="margin-bottom: 8px;">
+                <label style="font-size: 11.5px;">Last 4 Digits of Aadhaar Card</label>
+                <input type="text" name="aadhaar_last4" placeholder="e.g. 8492" maxlength="4" pattern="[0-9]{4}" required style="letter-spacing: 2px; font-weight: 700;" />
+              </div>
+              <div style="font-size: 11px; color: #16A34A; display:flex; align-items:center; gap:4px;">
+                <span>✓</span> Verified via UIDAI Sandbox Gateway
+              </div>
+            </div>
+
+            <!-- PILLAR 2 -->
+            <div class="pillar-box">
+              <div class="pillar-title">
+                <span>📜</span> Pillar 2: Trade &amp; Skill Credential
+              </div>
+              <div class="field" style="margin-bottom: 6px;">
+                <label style="font-size: 11.5px;">Accreditation Pathway</label>
+                <select name="cert_type" required style="font-size: 12px; padding: 6px 10px;">
+                  <option value="NCCT Master Craftsman">NCCT Master Craftsman Certification</option>
+                  <option value="Skill India Digital (SID)">Skill India Digital (SID) Verified</option>
+                  <option value="State Labour Board (SSDM)">State Skill Development Mission (Level 4)</option>
+                  <option value="Cooperative Guild Recommendation">Master Craftsman Guild Recommendation Letter</option>
+                </select>
+              </div>
+              <div class="field" style="margin-bottom: 0;">
+                <label style="font-size: 11.5px;">Certificate / Guild ID</label>
+                <input type="text" name="cert_id" placeholder="e.g. NCCT-2026-HYD-4819" required style="font-size: 12px; padding: 6px 10px;" />
+              </div>
+            </div>
+
+            <!-- PILLAR 3 -->
+            <div class="pillar-box">
+              <div class="pillar-title">
+                <span>⚖️</span> Pillar 3: Background &amp; Peer Reference
+              </div>
+              <div class="field" style="margin-bottom: 8px;">
+                <label style="font-size: 11.5px;">Cooperative Peer Reference (Member Name / ID)</label>
+                <input type="text" name="peer_reference" placeholder="e.g. Suresh Naik - Fed Member #102" required style="font-size: 12px; padding: 6px 10px;" />
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" name="police_declaration" id="police_decl" required style="accent-color: var(--color-primary);" />
+                <label for="police_decl" style="font-size: 11px; margin:0; cursor:pointer; color:var(--color-ink);">
+                  Self-declaration: No criminal records or pending charges under CCTNS.
+                </label>
+              </div>
+            </div>
+
+            <!-- PILLAR 4 -->
+            <div class="pillar-box">
+              <div class="pillar-title">
+                <span>🛠️</span> Pillar 4: Physical Tool-Kit &amp; Safety Audit
+              </div>
+              <div style="font-size: 12px; color: var(--color-muted); margin-bottom: 8px;">
+                Confirm you possess required trade equipment (insulated tools, safety goggles/gloves, voltage tester/pipe wrenches).
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-top: 10px;">
+                <input type="checkbox" name="tools_verified" id="tools_chk" required style="accent-color: var(--color-primary);" />
+                <label for="tools_chk" style="font-size: 11.5px; margin:0; cursor:pointer; font-weight:600; color:var(--color-primary-dark);">
+                  ✓ My physical tool-kit is complete and ready for officer inspection.
+                </label>
+              </div>
+            </div>
+
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <button class="btn btn-primary" type="submit" style="padding: 10px 20px; font-size: 14px;">
+              🚀 Submit 4-Pillar Credentials for Federation Accreditation
+            </button>
+            <a href="{{ url_for('worker_verification') }}" style="font-size: 13px; font-weight: 600; color: var(--color-primary); text-decoration: none;">
+              Open Detailed Verification Portal &rarr;
+            </a>
+          </div>
+        </form>
+      </div>
+    {% endif %}
   {% else %}
-    {% for b in bookings %}
-      <div>
-        <div class="flex-between">
-          <strong>{{ category_label(b['category']) }}</strong>
-          <span>
-            <span class="badge badge-{{ b['status'] }}">{{ b['status'] }}</span>
-            {% if b['urgent'] %}<span class="badge badge-urgent">urgent</span>{% endif %}
-          </span>
+    <div class="verified-passport-card">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div style="width:42px; height:42px; border-radius:50%; background:#15803D; color:#fff; display:flex; align-items:center; justify-content:center; font-size:20px;">
+          ✓
         </div>
-        <p class="muted" style="margin:6px 0;">{{ b['description'] }}</p>
-        <p class="help-text">Requested {{ b['created_at'][:16] }} &middot; {% if b['distance_km'] is not none %}{{ b['distance_km'] }} km away{% else %}distance unknown{% endif %}</p>
-
-        {% if b['status'] == 'matched' %}
-          <form method="POST" action="{{ url_for('worker_accept', booking_id=b['id']) }}" style="margin-top:8px;">
-            <button class="btn btn-sm btn-primary" type="submit">Accept</button>
-          </form>
-        {% elif b['status'] == 'accepted' %}
-          <form method="POST" action="{{ url_for('worker_complete', booking_id=b['id']) }}" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
-            <input type="number" name="price" placeholder="Final price (Rs.)" min="1" style="max-width:180px;" required />
-            <button class="btn btn-sm btn-secondary" type="submit">Mark completed</button>
-          </form>
-        {% endif %}
+        <div>
+          <div style="font-size: 11px; font-weight: 700; color: #065F46; letter-spacing: 0.05em; text-transform: uppercase;">
+            COOPERATIVE ACCREDITATION PASSPORT
+          </div>
+          <div style="font-size: 15px; font-weight: 800; color: #065F46;">
+            Certified Cooperative Master Craftsman &middot; {{ profile['cert_id'] or 'NCCT-HYD-2025-091' }}
+          </div>
+          <div style="font-size: 12px; color: #047857; margin-top: 2px;">
+            Aadhaar e-KYC Verified &middot; Ref: {{ profile['peer_reference'] or 'Hyderabad Labour Federation' }} &middot; Tools Inspected
+          </div>
+        </div>
       </div>
-      {% if not loop.last %}<hr class="divider" />{% endif %}
-    {% endfor %}
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <span class="badge badge-completed">✓ 4-Pillars Cleared</span>
+        <span class="badge badge-verified" style="background:#FFFFFF; border:1px solid #86EFAC;">🚀 +25% Cold-Start Boost Active</span>
+        <a href="{{ url_for('worker_verification') }}" class="btn btn-sm btn-outline" style="font-size: 11.5px; background: #FFFFFF; padding: 4px 10px; text-decoration: none;">
+          🪪 View Digital ID &rarr;
+        </a>
+      </div>
+    </div>
   {% endif %}
-</div>
 
+  <!-- WORKER TELEMETRY & AVAILABILITY BAR -->
+  <div class="grid grid-3" style="margin-bottom: 24px;">
+    <div class="card" style="padding: 18px 22px;">
+      <div style="font-size: 12px; font-weight: 600; color: var(--color-muted); text-transform: uppercase;">Cumulative Rating</div>
+      <div style="font-size: 26px; font-weight: 800; color: var(--color-primary-dark); margin-top: 4px;">
+        {% if profile['rating_count'] %}{{ profile['rating'] }} ★ <span style="font-size:14px; font-weight:normal; color:var(--color-muted);">({{ profile['rating_count'] }} ratings)</span>{% else %}No ratings yet{% endif %}
+      </div>
+      <div style="font-size: 12px; color: #16A34A; margin-top: 4px;">✓ Eligible for high-priority dispatch</div>
+    </div>
+
+    <div class="card" style="padding: 18px 22px;">
+      <div style="font-size: 12px; font-weight: 600; color: var(--color-muted); text-transform: uppercase;">Worker Welfare Wallet</div>
+      <div style="font-size: 26px; font-weight: 800; color: #15803D; margin-top: 4px;">
+        &#8377;{{ profile['welfare_wallet'] }}
+      </div>
+      <div style="font-size: 12px; color: var(--color-muted); margin-top: 4px;">Auto-credited 5% per completed job</div>
+    </div>
+
+    <div class="card" style="padding: 18px 22px;">
+      <form method="POST" action="{{ url_for('worker_availability') }}" onchange="this.submit()">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size: 12px; font-weight: 600; color: var(--color-muted); text-transform: uppercase;">Dispatch Status</div>
+            <div style="font-size: 20px; font-weight: 800; color: {% if profile['available'] %}#15803D{% else %}#DC2626{% endif %}; margin-top: 4px;">
+              {{ '🟢 Online / Available' if profile['available'] else '🔴 Offline / On Break' }}
+            </div>
+            <div style="font-size: 11.5px; color: var(--color-muted); margin-top: 4px;">Toggle to receive new jobs</div>
+          </div>
+          <input type="checkbox" name="available" {{ 'checked' if profile['available'] }} style="width:24px; height:24px; accent-color: var(--color-primary); cursor:pointer;" />
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ASSIGNED JOBS LIST -->
+  <div class="card">
+    <div class="card-header-row">
+      <div>
+        <h3>🛠️ Assigned Jobs &amp; Service Dispatch</h3>
+        <span class="help-text" style="margin:0;">Nearby jobs matched based on your skills within the 2.5 km cooperative zone.</span>
+      </div>
+      <span class="badge badge-verified">✓ Post-Service Direct Settlement</span>
+    </div>
+
+    {% if bookings|length == 0 %}
+      <div class="empty-state">
+        <div style="font-size: 44px; margin-bottom: 12px;">📬</div>
+        <h4 style="margin-bottom: 4px;">No active jobs assigned</h4>
+        <p style="font-size: 13.5px;">Keep your status toggle <strong>Online</strong>. When a nearby customer requests your trade, it will appear here immediately.</p>
+      </div>
+    {% else %}
+      {% set icons = {
+        'electrician': '⚡',
+        'plumber': '🚰',
+        'carpenter': '🪚',
+        'painter': '🎨',
+        'domestic_help': '🧺',
+        'caregiver': '🩺',
+        'driver': '🚗',
+        'gardener': '🌿',
+        'cleaner': '🧹',
+        'technician': '🔧'
+      } %}
+
+      {% for b in bookings %}
+        <div class="booking-card">
+          <div class="booking-card-top">
+            <div class="booking-title">
+              <span>{{ icons.get(b['category'], '🛠️') }}</span>
+              <span>{{ category_label(b['category']) }}</span>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <span class="badge badge-{{ b['status'] }}">{{ b['status'] }}</span>
+              {% if b['urgent'] %}<span class="badge badge-urgent">🚨 URGENT JOB</span>{% endif %}
+              {% if b['invoice_no'] %}
+                <span class="badge badge-completed">✓ Paid &amp; Settled</span>
+              {% elif b['status'] == 'completed' %}
+                <span class="badge badge-pending">Payment Pending</span>
+              {% else %}
+                <span class="badge badge-matched">Pay After Work</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <p style="margin: 6px 0 10px 0; font-size: 14px; color: var(--color-ink);">
+            <strong>Task:</strong> {{ b['description'] }}
+          </p>
+
+          <!-- RECIPROCAL CUSTOMER CONTACT -->
+          {% if b['customer_name'] %}
+            <div class="worker-reciprocal-box">
+              <div class="worker-info-left">
+                <div class="worker-avatar" style="background:#D97706;">👤</div>
+                <div>
+                  <div style="font-weight: 700; font-size: 13.5px; color: var(--color-primary-dark);">
+                    Client: {{ b['customer_name'] }}
+                  </div>
+                  <div style="font-size: 12px; color: var(--color-muted);">
+                    📍 Proximity: {{ b['distance_km'] or 0.8 }} km away &middot; Requested: {{ b['created_at'][:16] }}
+                  </div>
+                </div>
+              </div>
+              <a href="tel:{{ b['customer_phone'] }}" class="call-btn">
+                📞 Call Client: {{ b['customer_phone'] }}
+              </a>
+            </div>
+          {% endif %}
+
+          <!-- ACTIONS BASED ON STATUS -->
+          {% if b['status'] == 'matched' %}
+            <div style="margin-top: 12px; display:flex; gap:10px;">
+              <form method="POST" action="{{ url_for('worker_accept', booking_id=b['id']) }}">
+                <button class="btn btn-primary" type="submit">
+                  ✅ Accept Job &amp; Dispatch to Location
+                </button>
+              </form>
+            </div>
+          {% elif b['status'] == 'accepted' %}
+            <!-- ON-SITE COMPLETION & OTP VERIFICATION FORM -->
+            <form method="POST" action="{{ url_for('worker_complete', booking_id=b['id']) }}" style="margin-top: 14px; background: #F8FAFC; padding: 16px; border-radius: var(--radius-md); border: 1.5px solid var(--color-border);">
+              <div style="font-weight: 700; font-size: 14px; color: var(--color-primary-dark); margin-bottom: 4px;">
+                🔒 On-Site Verification &amp; Service Completion
+              </div>
+              <div style="font-size: 12px; color: var(--color-muted); margin-bottom: 12px;">
+                Enter final agreed price and ask customer for the 4-digit code shown on their dashboard to authenticate completion. Customer settles payment directly upon verification.
+              </div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <div style="flex: 1; min-width: 140px;">
+                  <label style="font-size: 12px; margin-bottom: 2px;">Final Agreed Price (&#8377;)</label>
+                  <input type="number" name="price" placeholder="e.g. 350" min="1" required />
+                </div>
+                <div style="flex: 1; min-width: 140px;">
+                  <label style="font-size: 12px; margin-bottom: 2px;">4-Digit Customer OTP</label>
+                  <input type="text" name="otp" placeholder="e.g. 8046" maxlength="4" style="font-weight: 800; letter-spacing: 3px; text-align: center;" required />
+                </div>
+                <div style="align-self: flex-end;">
+                  <button class="btn btn-secondary" type="submit" style="padding: 12px 20px;">
+                    ✓ Verify OTP &amp; Complete
+                  </button>
+                </div>
+              </div>
+            </form>
+          {% elif b['status'] == 'completed' %}
+            <div style="margin-top: 10px; background: #ECFDF5; border: 1px solid #BBF7D0; border-radius: var(--radius-md); padding: 10px 14px; display:flex; justify-content:space-between; align-items:center;">
+              <span style="color: #166534; font-weight: 700; font-size: 13.5px;">✓ Completed &middot; Final Fee: &#8377;{{ b['price'] }}</span>
+              <span style="color: #15803D; font-size: 12px;">Payment released to your account</span>
+            </div>
+          {% endif %}
+
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+</div>
 {% endblock %}

@@ -13,6 +13,7 @@ Run with:  python app.py
 
 import os
 import uuid
+import random
 from datetime import datetime
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash
@@ -210,12 +211,51 @@ def customer_dashboard():
     user = current_user()
     conn = get_connection()
     bookings = conn.execute(
-        "SELECT * FROM bookings WHERE customer_id = ? ORDER BY created_at DESC",
+        """SELECT bookings.*,
+                  workers.rating AS worker_rating,
+                  workers.rating_count AS worker_rating_count,
+                  workers.spoken_languages AS worker_spoken_languages,
+                  worker_users.name AS worker_name,
+                  worker_users.phone AS worker_phone,
+                  payments.invoice_no, payments.worker_payout,
+                  payments.welfare_contribution, payments.federation_commission
+           FROM bookings
+           LEFT JOIN workers ON workers.id = bookings.worker_id
+           LEFT JOIN users AS worker_users ON worker_users.id = workers.user_id
+           LEFT JOIN payments ON payments.booking_id = bookings.id
+           WHERE bookings.customer_id = ?
+           ORDER BY bookings.created_at DESC""",
         (user["id"],),
+    ).fetchall()
+
+    workers = conn.execute(
+        """SELECT workers.id, workers.lat, workers.lng, workers.skills, workers.rating, workers.available, workers.spoken_languages, users.name
+           FROM workers
+           JOIN users ON users.id = workers.user_id
+           WHERE workers.verified = 1 AND workers.lat IS NOT NULL"""
     ).fetchall()
     conn.close()
 
-    return render_template("customer_dashboard.html", bookings=bookings, category_label=category_label)
+    worker_pins = [
+        {
+            "id": w["id"],
+            "name": w["name"],
+            "lat": w["lat"],
+            "lng": w["lng"],
+            "skills": [category_label(s) for s in w["skills"].split(",")],
+            "rating": w["rating"],
+            "available": bool(w["available"]),
+            "spoken_languages": w["spoken_languages"] if "spoken_languages" in w.keys() and w["spoken_languages"] else "en,hi",
+        }
+        for w in workers
+    ]
+
+    return render_template(
+        "customer_dashboard.html",
+        bookings=bookings,
+        category_label=category_label,
+        worker_pins=worker_pins,
+    )
 
 
 @app.route("/customer/book", methods=["POST"])
@@ -230,30 +270,35 @@ def customer_book():
     lat = float(request.form.get("lat"))
     lng = float(request.form.get("lng"))
     urgent = request.form.get("urgent") == "on"
+    preferred_lang = request.form.get("preferred_lang", "en").strip()
 
     conn = get_connection()
     workers = conn.execute("SELECT * FROM workers").fetchall()
-    matched_worker, distance = find_best_worker(workers, category, lat, lng)
+    matched_worker, distance = find_best_worker(workers, category, lat, lng, preferred_lang=preferred_lang)
 
+    completion_otp = f"{random.randint(1000, 9999)}"
     booking_id = new_id()
     conn.execute(
         """INSERT INTO bookings
            (id, customer_id, worker_id, category, description, status, urgent,
-            lat, lng, distance_km, price, created_at, completed_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, NULL)""",
+            lat, lng, distance_km, price, completion_otp, escrow_status, language, created_at, completed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 'unpaid', ?, ?, NULL)""",
         (booking_id, user["id"], matched_worker["id"] if matched_worker else None,
          category, description, "matched" if matched_worker else "pending",
-         1 if urgent else 0, lat, lng, distance, now()),
+         1 if urgent else 0, lat, lng, distance, completion_otp, preferred_lang, now()),
     )
     conn.commit()
     conn.close()
 
-    if matched_worker:
-        flash(f"Matched with a verified {category_label(category)} worker {distance} km away.", "success")
-    else:
-        flash("No verified worker is available right now - your booking is queued as pending.", "info")
+    lang_labels = {"en": "English", "hi": "Hindi", "te": "Telugu", "mr": "Marathi", "bn": "Bengali", "ta": "Tamil", "kn": "Kannada"}
+    lang_name = lang_labels.get(preferred_lang, preferred_lang.upper())
 
-    return redirect(url_for("customer_dashboard"))
+    if matched_worker:
+        flash(f"Matched with verified {lang_name}-speaking {category_label(category)} ({distance} km away)! Zero advance payment — pay directly after job completion. Completion OTP: {completion_otp}.", "success")
+    else:
+        flash(f"No verified {lang_name}-speaking worker available in this radius right now — your request is queued as pending.", "info")
+
+    return redirect(url_for("customer_dashboard") + "#bookings")
 
 
 @app.route("/customer/pay/<booking_id>", methods=["POST"])
@@ -305,11 +350,15 @@ def customer_pay(booking_id):
         "UPDATE workers SET welfare_wallet = welfare_wallet + ? WHERE id = ?",
         (welfare_contribution, booking["worker_id"]),
     )
+    conn.execute(
+        "UPDATE bookings SET escrow_status = 'paid' WHERE id = ?",
+        (booking_id,),
+    )
     conn.commit()
     conn.close()
 
-    flash(f"Payment successful. Invoice {invoice_no} - Rs.{welfare_contribution} added to the worker's welfare wallet.", "success")
-    return redirect(url_for("customer_dashboard"))
+    flash(f"Payment of Rs.{amount} completed successfully! Invoice {invoice_no} generated - Rs.{welfare_contribution} credited to worker's welfare wallet.", "success")
+    return redirect(url_for("customer_dashboard") + "#bookings")
 
 
 @app.route("/customer/rate/<booking_id>", methods=["POST"])
@@ -354,7 +403,118 @@ def customer_rate(booking_id):
     conn.close()
 
     flash("Thanks for your feedback!", "success")
-    return redirect(url_for("customer_dashboard"))
+    return redirect(url_for("customer_dashboard") + "#bookings")
+
+
+@app.route("/customer/settings", methods=["GET"])
+def customer_settings():
+    redirect_response = require_role("customer")
+    if redirect_response:
+        return redirect_response
+
+    user = current_user()
+    conn = get_connection()
+    stats = {
+        "total_bookings": conn.execute("SELECT COUNT(*) AS c FROM bookings WHERE customer_id = ?", (user["id"],)).fetchone()["c"],
+        "completed_bookings": conn.execute("SELECT COUNT(*) AS c FROM bookings WHERE customer_id = ? AND status = 'completed'", (user["id"],)).fetchone()["c"],
+        "welfare_generated": round(conn.execute(
+            """SELECT COALESCE(SUM(payments.welfare_contribution), 0) AS s
+               FROM payments
+               JOIN bookings ON bookings.id = payments.booking_id
+               WHERE bookings.customer_id = ?""",
+            (user["id"],)
+        ).fetchone()["s"] or 0, 2),
+    }
+    conn.close()
+
+    available_languages = [
+        ("en", "🇬🇧 English"),
+        ("hi", "🇮🇳 हिन्दी (Hindi)"),
+        ("te", "🇮🇳 తెలుగు (Telugu)"),
+        ("mr", "🇮🇳 मराठी (Marathi)"),
+        ("bn", "🇮🇳 বাংলা (Bengali)"),
+        ("ta", "🇮🇳 தமிழ் (Tamil)"),
+        ("kn", "🇮🇳 ಕನ್ನಡ (Kannada)"),
+    ]
+
+    return render_template(
+        "customer_settings.html",
+        user=user,
+        stats=stats,
+        available_languages=available_languages,
+    )
+
+
+@app.route("/customer/settings/profile", methods=["POST"])
+def customer_update_profile():
+    redirect_response = require_role("customer")
+    if redirect_response:
+        return redirect_response
+
+    user = current_user()
+    name = request.form.get("name", "").strip()
+    phone = request.form.get("phone", "").strip()
+    language = request.form.get("language", "en").strip()
+    address = request.form.get("address", "").strip()
+
+    if not name or len(name) < 2:
+        flash("Please enter a valid full name.", "error")
+        return redirect(url_for("customer_settings"))
+
+    if not phone or not phone.isdigit() or len(phone) != 10:
+        flash("Phone number must be exactly 10 digits.", "error")
+        return redirect(url_for("customer_settings"))
+
+    conn = get_connection()
+    existing = conn.execute("SELECT id FROM users WHERE phone = ? AND id != ?", (phone, user["id"])).fetchone()
+    if existing:
+        conn.close()
+        flash(f"Phone number {phone} is already registered to another account.", "error")
+        return redirect(url_for("customer_settings"))
+
+    conn.execute(
+        "UPDATE users SET name = ?, phone = ?, language = ?, address = ? WHERE id = ?",
+        (name, phone, language, address, user["id"]),
+    )
+    conn.commit()
+    conn.close()
+
+    session["lang"] = language
+    flash("Profile settings updated successfully!", "success")
+    return redirect(url_for("customer_settings"))
+
+
+@app.route("/customer/settings/password", methods=["POST"])
+def customer_update_password():
+    redirect_response = require_role("customer")
+    if redirect_response:
+        return redirect_response
+
+    user = current_user()
+    current_pw = request.form.get("current_password", "").strip()
+    new_pw = request.form.get("new_password", "").strip()
+    confirm_pw = request.form.get("confirm_password", "").strip()
+
+    if not check_password_hash(user["password_hash"], current_pw):
+        flash("Your current password was incorrect.", "error")
+        return redirect(url_for("customer_settings"))
+
+    if len(new_pw) < 6:
+        flash("New password must be at least 6 characters long.", "error")
+        return redirect(url_for("customer_settings"))
+
+    if new_pw != confirm_pw:
+        flash("New password and confirmation do not match.", "error")
+        return redirect(url_for("customer_settings"))
+
+    new_hash = generate_password_hash(new_pw)
+    conn = get_connection()
+    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user["id"]))
+    conn.commit()
+    conn.close()
+
+    flash("Password updated successfully! Please keep it safe.", "success")
+    return redirect(url_for("customer_settings"))
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +531,12 @@ def worker_dashboard():
     conn = get_connection()
     profile = conn.execute("SELECT * FROM workers WHERE user_id = ?", (user["id"],)).fetchone()
     bookings = conn.execute(
-        "SELECT * FROM bookings WHERE worker_id = ? ORDER BY created_at DESC", (profile["id"],)
+        """SELECT bookings.*, users.name AS customer_name, users.phone AS customer_phone
+           FROM bookings
+           JOIN users ON users.id = bookings.customer_id
+           WHERE bookings.worker_id = ?
+           ORDER BY bookings.created_at DESC""",
+        (profile["id"],),
     ).fetchall()
     conn.close()
 
@@ -392,6 +557,119 @@ def worker_availability():
     conn.execute("UPDATE workers SET available = ? WHERE user_id = ?", (1 if available else 0, user["id"]))
     conn.commit()
     conn.close()
+    return redirect(url_for("worker_dashboard"))
+
+
+@app.route("/worker/verification")
+def worker_verification():
+    redirect_response = require_role("worker")
+    if redirect_response:
+        return redirect_response
+
+    user = current_user()
+    conn = get_connection()
+    profile = conn.execute(
+        """SELECT workers.*, users.name, users.phone, users.address
+           FROM workers JOIN users ON users.id = workers.user_id
+           WHERE workers.user_id = ?""",
+        (user["id"],),
+    ).fetchone()
+    conn.close()
+
+    return render_template("worker_verification.html", profile=profile)
+
+
+@app.route("/worker/verification/save", methods=["POST"])
+def worker_verification_save():
+    redirect_response = require_role("worker")
+    if redirect_response:
+        return redirect_response
+
+    user = current_user()
+    aadhaar_last4 = request.form.get("aadhaar_last4", "").strip()
+    aadhaar_name = request.form.get("aadhaar_name", "").strip() or user["name"]
+    aadhaar_dob = request.form.get("aadhaar_dob", "").strip()
+    cert_type = request.form.get("cert_type", "NCCT Master Craftsman").strip()
+    cert_id = request.form.get("cert_id", "").strip()
+    cert_level = request.form.get("cert_level", "NSQF Level 4 - Master Craftsman").strip()
+    cert_issue_year = request.form.get("cert_issue_year", "2024").strip()
+    peer_reference = request.form.get("peer_reference", "").strip()
+    peer_phone = request.form.get("peer_phone", "").strip()
+    pcc_number = request.form.get("pcc_number", "").strip()
+    police_declaration = 1 if request.form.get("police_declaration") == "on" else 0
+    toolkit_items = request.form.get("toolkit_items", "").strip()
+    tools_verified = 1 if request.form.get("tools_verified") == "on" else 0
+
+    if len(aadhaar_last4) != 4 or not aadhaar_last4.isdigit():
+        flash("Please enter the valid last 4 digits of your Aadhaar card.", "error")
+        return redirect(url_for("worker_verification"))
+
+    if not cert_id:
+        flash("Please provide your NCCT / Trade Certificate Registration ID.", "error")
+        return redirect(url_for("worker_verification"))
+
+    if not police_declaration:
+        flash("Please complete the criminal background self-declaration affidavit.", "error")
+        return redirect(url_for("worker_verification"))
+
+    conn = get_connection()
+    conn.execute(
+        """UPDATE workers
+           SET aadhaar_last4 = ?, aadhaar_name = ?, aadhaar_dob = ?,
+               cert_type = ?, cert_id = ?, cert_level = ?, cert_issue_year = ?,
+               peer_reference = ?, peer_phone = ?, pcc_number = ?,
+               toolkit_items = ?, tools_verified = ?, verification_status = 'submitted'
+           WHERE user_id = ?""",
+        (aadhaar_last4, aadhaar_name, aadhaar_dob, cert_type, cert_id, cert_level,
+         cert_issue_year, peer_reference, peer_phone, pcc_number, toolkit_items,
+         tools_verified, user["id"]),
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Comprehensive 4-Pillar verification saved & submitted for Federation Field Officer audit!", "success")
+    return redirect(url_for("worker_verification"))
+
+
+@app.route("/worker/verify/submit", methods=["POST"])
+def worker_verify_submit():
+    redirect_response = require_role("worker")
+    if redirect_response:
+        return redirect_response
+
+    user = current_user()
+    aadhaar_last4 = request.form.get("aadhaar_last4", "").strip()
+    cert_type = request.form.get("cert_type", "NCCT Master Craftsman").strip()
+    cert_id = request.form.get("cert_id", "").strip()
+    peer_reference = request.form.get("peer_reference", "").strip()
+    police_declaration = 1 if request.form.get("police_declaration") == "on" else 0
+    tools_verified = 1 if request.form.get("tools_verified") == "on" else 0
+
+    if len(aadhaar_last4) != 4 or not aadhaar_last4.isdigit():
+        flash("Please enter the valid last 4 digits of your Aadhaar card.", "error")
+        return redirect(url_for("worker_dashboard"))
+
+    if not cert_id:
+        flash("Please provide your NCCT / Trade Certificate Registration ID.", "error")
+        return redirect(url_for("worker_dashboard"))
+
+    if not police_declaration:
+        flash("Please complete the criminal background self-declaration affidavit.", "error")
+        return redirect(url_for("worker_dashboard"))
+
+    conn = get_connection()
+    conn.execute(
+        """UPDATE workers
+           SET aadhaar_last4 = ?, aadhaar_name = COALESCE(aadhaar_name, ?),
+               cert_type = ?, cert_id = ?, peer_reference = ?,
+               tools_verified = ?, verification_status = 'submitted'
+           WHERE user_id = ?""",
+        (aadhaar_last4, user["name"], cert_type, cert_id, peer_reference, tools_verified, user["id"]),
+    )
+    conn.commit()
+    conn.close()
+
+    flash("4-Pillar accreditation credentials submitted! The Cooperative Federation Officer will inspect your toolkit and sign off.", "success")
     return redirect(url_for("worker_dashboard"))
 
 
@@ -426,8 +704,14 @@ def worker_complete(booking_id):
 
     user = current_user()
     price = request.form.get("price")
+    entered_otp = request.form.get("otp", "").strip()
+
     if not price or float(price) <= 0:
         flash("Enter a valid final price.", "error")
+        return redirect(url_for("worker_dashboard"))
+
+    if not entered_otp:
+        flash("Please enter the 4-digit customer completion OTP.", "error")
         return redirect(url_for("worker_dashboard"))
 
     conn = get_connection()
@@ -439,13 +723,19 @@ def worker_complete(booking_id):
         flash("This booking was not matched to you.", "error")
         return redirect(url_for("worker_dashboard"))
 
+    expected_otp = str(booking["completion_otp"]).strip() if booking["completion_otp"] else None
+    if expected_otp and entered_otp != expected_otp:
+        conn.close()
+        flash(f"Invalid OTP '{entered_otp}'. Ask the customer for the 4-digit verification code shown on their dashboard.", "error")
+        return redirect(url_for("worker_dashboard"))
+
     conn.execute(
-        "UPDATE bookings SET status = 'completed', price = ?, completed_at = ? WHERE id = ?",
+        "UPDATE bookings SET status = 'completed', price = ?, escrow_status = 'pending_payment', completed_at = ? WHERE id = ?",
         (float(price), now(), booking_id),
     )
     conn.commit()
     conn.close()
-    flash("Job marked completed. The customer can now pay.", "success")
+    flash(f"Customer OTP verified! Job completed at Rs.{price}. The customer will now inspect and settle payment.", "success")
     return redirect(url_for("worker_dashboard"))
 
 
@@ -520,17 +810,93 @@ def admin_dashboard():
     )
 
 
+@app.route("/admin/verify/worker/<worker_id>")
+def admin_worker_dossier(worker_id):
+    redirect_response = require_role("admin")
+    if redirect_response:
+        return redirect_response
+
+    conn = get_connection()
+    worker = conn.execute(
+        """SELECT workers.*, users.name, users.phone, users.address, users.created_at AS user_created_at
+           FROM workers
+           JOIN users ON users.id = workers.user_id
+           WHERE workers.id = ?""",
+        (worker_id,),
+    ).fetchone()
+    conn.close()
+
+    if not worker:
+        flash("Worker not found.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    return render_template("admin_worker_dossier.html", worker=worker)
+
+
+@app.route("/admin/verify/worker/<worker_id>/approve", methods=["POST"])
+def admin_worker_approve(worker_id):
+    redirect_response = require_role("admin")
+    if redirect_response:
+        return redirect_response
+
+    officer_remarks = request.form.get("officer_remarks", "Field toolkit audit passed at Regional Co-op Office. All 4 pillars accredited.").strip()
+    coop_id = f"SHY-COOP-HYD-{worker_id[:5].upper()}"
+
+    conn = get_connection()
+    conn.execute(
+        """UPDATE workers
+           SET verified = 1, certified = 1, verification_status = 'verified',
+               tools_verified = 1, officer_remarks = ?,
+               coop_id = COALESCE(NULLIF(coop_id, ''), ?),
+               verified_at = ?
+           WHERE id = ?""",
+        (officer_remarks, coop_id, now(), worker_id),
+    )
+    conn.commit()
+    conn.close()
+    flash("Worker verified! 4-Pillar Accreditation granted and Cold-Start boost activated.", "success")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/verify/worker/<worker_id>/reject", methods=["POST"])
+def admin_worker_reject(worker_id):
+    redirect_response = require_role("admin")
+    if redirect_response:
+        return redirect_response
+
+    officer_remarks = request.form.get("officer_remarks", "Incomplete verification details. Please update and resubmit.").strip()
+
+    conn = get_connection()
+    conn.execute(
+        "UPDATE workers SET verification_status = 'rejected', officer_remarks = ? WHERE id = ?",
+        (officer_remarks, worker_id),
+    )
+    conn.commit()
+    conn.close()
+    flash(f"Worker verification returned for correction: '{officer_remarks}'", "info")
+    return redirect(url_for("admin_dashboard"))
+
+
 @app.route("/admin/verify/<worker_id>", methods=["POST"])
 def admin_verify(worker_id):
     redirect_response = require_role("admin")
     if redirect_response:
         return redirect_response
 
+    coop_id = f"SHY-COOP-HYD-{worker_id[:5].upper()}"
     conn = get_connection()
-    conn.execute("UPDATE workers SET verified = 1, certified = 1 WHERE id = ?", (worker_id,))
+    conn.execute(
+        """UPDATE workers
+           SET verified = 1, certified = 1, verification_status = 'verified',
+               tools_verified = 1,
+               coop_id = COALESCE(NULLIF(coop_id, ''), ?),
+               verified_at = ?
+           WHERE id = ?""",
+        (coop_id, now(), worker_id),
+    )
     conn.commit()
     conn.close()
-    flash("Worker verified.", "success")
+    flash("Worker verified! 4-Pillar Accreditation granted and Cold-Start boost activated.", "success")
     return redirect(url_for("admin_dashboard"))
 
 

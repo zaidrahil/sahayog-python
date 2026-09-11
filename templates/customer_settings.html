@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Account &amp; Profile Settings &mdash; Sahayog{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 10px; max-width: 1060px;">
+
+  <!-- BREADCRUMBS -->
+  <div style="font-size: 12.5px; color: var(--color-muted); margin-bottom: 14px; display:flex; align-items:center; gap:6px;">
+    <a href="{{ url_for('customer_dashboard') }}" style="color: var(--color-primary); font-weight: 600;">← Back to Customer Dashboard</a>
+    <span>/</span>
+    <span style="color: var(--color-ink); font-weight: 600;">Account &amp; Profile Settings</span>
+  </div>
+
+  <!-- SETTINGS HERO BANNER -->
+  <div class="dashboard-hero" style="margin-bottom: 24px;">
+    <div>
+      <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--color-accent-border); margin-bottom: 4px;">
+        CONSUMER PROFILE MANAGEMENT
+      </div>
+      <h1>Account &amp; Profile Settings ⚙️</h1>
+      <p>Manage your contact identity, default communication language, saved service address, and login credentials.</p>
+    </div>
+    <div class="hero-stat-badges">
+      <div class="hero-stat-badge">
+        <div class="stat-num">{{ stats.total_bookings }}</div>
+        <div class="stat-lbl">Total Requests</div>
+      </div>
+      <div class="hero-stat-badge">
+        <div class="stat-num">{{ stats.completed_bookings }}</div>
+        <div class="stat-lbl">Completed Jobs</div>
+      </div>
+      <div class="hero-stat-badge">
+        <div class="stat-num">&#8377;{{ stats.welfare_generated }}</div>
+        <div class="stat-lbl">Welfare Generated</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-2" style="align-items: start; gap: 24px;">
+
+    <!-- LEFT COLUMN: PERSONAL PROFILE DETAILS -->
+    <div class="card">
+      <div class="card-header-row">
+        <div>
+          <h3>👤 Personal Profile &amp; Language</h3>
+          <span class="help-text" style="margin:0;">Update your name, contact phone, and preferred regional language.</span>
+        </div>
+        <span class="badge badge-verified">Active Member</span>
+      </div>
+
+      <form method="POST" action="{{ url_for('customer_update_profile') }}">
+        <div class="field">
+          <label for="name">Full Legal Name</label>
+          <input type="text" id="name" name="name" value="{{ user['name'] }}" required minlength="2" placeholder="e.g. Priya Sharma" />
+        </div>
+
+        <div class="field">
+          <label for="phone">Registered Mobile Number (10 Digits)</label>
+          <input type="tel" id="phone" name="phone" value="{{ user['phone'] }}" required pattern="[0-9]{10}" maxlength="10" placeholder="e.g. 9876543210" />
+          <div class="help-text">Used for technician coordination and SMS booking notifications.</div>
+        </div>
+
+        <div class="field">
+          <label for="language">Preferred App &amp; Worker Communication Language</label>
+          <select id="language" name="language" required style="font-weight: 600;">
+            {% for code, label in available_languages %}
+              <option value="{{ code }}" {% if user['language'] == code %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="help-text">
+            Sets your default dashboard locale and filters nearest workers fluent in this language.
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="address">Default Home / Service Address</label>
+          <textarea id="address" name="address" rows="3" placeholder="e.g., Flat 402, Lotus Apartments, Road No. 36, Jubilee Hills, Hyderabad - 500033">{{ user['address'] or '' }}</textarea>
+          <div class="help-text">Pre-fills your address notes when booking cooperative technicians.</div>
+        </div>
+
+        <button class="btn btn-primary btn-block" type="submit" style="padding: 12px; font-size: 15px;">
+          💾 Save Profile Changes
+        </button>
+      </form>
+    </div>
+
+    <!-- RIGHT COLUMN: SECURITY & CO-OP MEMBERSHIP -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+
+      <!-- CARD 1: PASSWORD & SECURITY -->
+      <div class="card">
+        <div class="card-header-row">
+          <div>
+            <h3>🔒 Security &amp; Password</h3>
+            <span class="help-text" style="margin:0;">Change your authentication password.</span>
+          </div>
+          <span class="badge badge-pending">PBKDF2 Encrypted</span>
+        </div>
+
+        <form method="POST" action="{{ url_for('customer_update_password') }}">
+          <div class="field">
+            <label for="current_password">Current Password</label>
+            <input type="password" id="current_password" name="current_password" required placeholder="Enter existing password" />
+          </div>
+
+          <div class="field-row">
+            <div class="field" style="margin-bottom: 0;">
+              <label for="new_password">New Password</label>
+              <input type="password" id="new_password" name="new_password" required minlength="6" placeholder="Min. 6 chars" />
+            </div>
+            <div class="field" style="margin-bottom: 0;">
+              <label for="confirm_password">Confirm New Password</label>
+              <input type="password" id="confirm_password" name="confirm_password" required minlength="6" placeholder="Re-type password" />
+            </div>
+          </div>
+          <div class="help-text" style="margin-top: 6px; margin-bottom: 14px;">
+            Choose a secure password containing a mix of letters and numbers.
+          </div>
+
+          <button class="btn btn-secondary btn-block" type="submit" style="padding: 11px;">
+            🔑 Update Password
+          </button>
+        </form>
+      </div>
+
+      <!-- CARD 2: COOPERATIVE MEMBERSHIP CARD -->
+      <div class="card" style="background: linear-gradient(135deg, #F8FAFC 0%, #F0FDF4 100%); border: 1.5px solid #BBF7D0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size: 24px;">🤝</span>
+            <div>
+              <h4 style="margin:0; font-size: 14px; color: var(--color-primary-dark);">Cooperative Consumer Circle</h4>
+              <div style="font-size: 11.5px; color: var(--color-muted);">National Council for Cooperative Training (NCCT)</div>
+            </div>
+          </div>
+          <span class="badge badge-verified">✓ Member</span>
+        </div>
+
+        <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius: var(--radius-md); padding:12px 14px; margin-bottom:12px; font-size:12.5px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span style="color:var(--color-muted);">Account ID:</span>
+            <span style="font-family:monospace; font-weight:700; color:var(--color-ink);">{{ user['id'][:12] }}...</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span style="color:var(--color-muted);">Member Since:</span>
+            <span style="font-weight:600;">{{ user['created_at'][:10] }}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span style="color:var(--color-muted);">Social Security Impact:</span>
+            <span style="font-weight:700; color:#16A34A;">&#8377;{{ stats.welfare_generated }} contributed</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--color-muted);">Model:</span>
+            <span style="font-weight:600; color:var(--color-primary-dark);">Pay-After-Service &middot; 0% Surge</span>
+          </div>
+        </div>
+
+        <p style="font-size: 12px; color: #047857; margin:0; line-height:1.4;">
+          💡 <strong>Cooperative Guarantee:</strong> Every service booked under your account directly supports verified gig workers with fair union wages (87%) and healthcare/pension funds (5%).
+        </p>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+{% endblock %}

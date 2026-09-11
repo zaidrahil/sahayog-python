@@ -27,15 +27,14 @@ def distance_km(lat1, lng1, lat2, lng2):
     return R * c
 
 
-def find_best_worker(workers, category, lat, lng):
-    """Given a list of worker rows, a required skill category, and the
-    customer's location, return the best match:
+def find_best_worker(workers, category, lat, lng, preferred_lang=None):
+    """Given a list of worker rows, a required skill category, customer location,
+    and optional preferred communication language, return the best match:
 
     1. Only verified, available workers with the required skill are considered.
-    2. Prefer any worker within 15 km.
-    3. Among those, prefer the nearest one - unless two are within 0.5 km of
-       each other, in which case prefer the higher-rated worker (a tiebreaker
-       so a slightly-further but much-better-rated worker can still win).
+    2. If preferred_lang is given, only workers fluent in that language are eligible.
+    3. Prefer any worker within 15 km (prioritizing 2-3 km hyper-local zone).
+    4. Among those, distance binning (0.5 km steps) with star-rating tiebreaker.
 
     Returns (worker_row, distance_km) or (None, None) if nobody qualifies.
     """
@@ -46,6 +45,18 @@ def find_best_worker(workers, category, lat, lng):
     if not eligible:
         return None, None
 
+    # Requirement 3: Language-gated matching
+    if preferred_lang and preferred_lang.lower() not in ("any", ""):
+        lang_target = preferred_lang.lower().strip()
+        lang_matched = []
+        for w in eligible:
+            languages = [l.strip().lower() for l in (w["spoken_languages"] or "en,hi").split(",")] if "spoken_languages" in w.keys() else ["en", "hi"]
+            if lang_target in languages:
+                lang_matched.append(w)
+        eligible = lang_matched
+        if not eligible:
+            return None, None
+
     scored = []
     for w in eligible:
         d = distance_km(lat, lng, w["lat"], w["lng"])
@@ -54,8 +65,6 @@ def find_best_worker(workers, category, lat, lng):
     def sort_key(item):
         worker, d = item
         within_radius = d <= 15
-        # Python sorts tuples left-to-right: this puts "within radius" workers
-        # first, then breaks ties by distance/rating as described above.
         return (0 if within_radius else 1, round(d / 0.5), -worker["rating"])
 
     scored.sort(key=sort_key)

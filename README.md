@@ -12,6 +12,14 @@ you can open and inspect directly.
 
 ---
 
+> 📘 **Project Documentation & Hackathon Deliverables:**  
+> - **[PROJECT_DESCRIPTION.md](PROJECT_DESCRIPTION.md)**: Master project architecture, database schemas, ER diagrams, route catalog, and maintenance protocols.
+> - **[FAIR_WORKER_ALLOCATION_SYSTEM.md](FAIR_WORKER_ALLOCATION_SYSTEM.md)**: Detailed design specification for Aadhaar verification, fatigue limits, cold-start boost, 2-3km geofencing, escrow settlement, 22-language matching, and NCCT retraining.
+> - **[sahayog_sih_presentation.pptx](sahayog_sih_presentation.pptx)**: Official 16:9 SIH PowerPoint presentation with custom visuals and embedded speaker notes.
+> - **[PRESENTATION_NOTES.md](PRESENTATION_NOTES.md)**: Full slide-by-slide presenter script, timing blueprint, and jury viva defense guide.
+
+---
+
 ## Why this version is easier to read
 
 - **One route = one function.** Every URL in the app (`/customer/book`, `/worker/accept/<id>`,

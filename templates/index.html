@@ -1,71 +1,138 @@
 {% extends "base.html" %}
-{% block title %}Sahayog - Cooperative Gig Services Platform{% endblock %}
+{% block title %}Sahayog &mdash; Cooperative Gig Services Platform{% endblock %}
+
 {% block content %}
 
-<section class="hero">
-  <div class="container">
-    <h1>{{ t('hero_title') }}</h1>
-    <p class="lede">{{ t('hero_lede') }}</p>
-    <div class="stat-strip">
-      <div><div class="num">{{ verified_worker_count }}</div><div class="lbl">verified cooperative workers</div></div>
-      <div><div class="num">{{ completed_bookings }}</div><div class="lbl">services delivered</div></div>
-      <div><div class="num">8%</div><div class="lbl">platform commission (vs 20-30% elsewhere)</div></div>
+<!-- HERO BANNER -->
+<section style="background: var(--gradient-dark); color: #FFFFFF; padding: 70px 0 80px 0; position: relative; overflow: hidden;">
+  <div class="container" style="position: relative; z-index: 1;">
+    <div style="display:inline-block; font-size:12px; font-weight:800; letter-spacing:0.08em; background:rgba(255,255,255,0.12); padding:4px 14px; border-radius:100px; color:var(--color-accent-border); margin-bottom:14px;">
+      MINISTRY OF COOPERATION &middot; NCCT INITIATIVE &middot; SIH26089
+    </div>
+    <h1 style="color: #FFFFFF; font-size: 46px; font-weight: 800; max-width: 760px; line-height: 1.15; margin-bottom: 14px;">
+      {{ t('hero_title') }}
+    </h1>
+    <p style="color: #CBD5E1; font-size: 18px; max-width: 620px; line-height: 1.6; margin-bottom: 36px;">
+      {{ t('hero_lede') }}
+    </p>
+
+    <!-- METRICS STRIP -->
+    <div style="display: flex; gap: 32px; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 24px;">
+      <div>
+        <div style="font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--color-accent-border);">{{ verified_worker_count }}</div>
+        <div style="font-size: 13px; color: #E2E8F0;">Verified Co-op Workers</div>
+      </div>
+      <div>
+        <div style="font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--color-accent-border);">{{ completed_bookings }}</div>
+        <div style="font-size: 13px; color: #E2E8F0;">Services Completed</div>
+      </div>
+      <div>
+        <div style="font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--color-accent-border);">8%</div>
+        <div style="font-size: 13px; color: #E2E8F0;">Co-op Fee (vs 30% on private apps)</div>
+      </div>
+      <div>
+        <div style="font-family: var(--font-display); font-size: 32px; font-weight: 800; color: #A7F3D0;">5%</div>
+        <div style="font-size: 13px; color: #E2E8F0;">Auto Worker Welfare Wallet</div>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="section">
+<!-- SERVICES SHOWCASE -->
+<section style="padding: 50px 0 20px 0;">
   <div class="container">
-    <h2 class="section-title">Services available</h2>
-    <div class="category-grid">
+    <div style="text-align: center; margin-bottom: 30px;">
+      <h2 style="font-size: 28px;">Cooperative Services Available</h2>
+      <p style="color: var(--color-muted); max-width: 600px; margin: 0 auto;">Directly matched with verified cooperative federation members within a 2.5 km hyper-local zone.</p>
+    </div>
+
+    {% set icons = {
+      'electrician': '⚡',
+      'plumber': '🚰',
+      'carpenter': '🪚',
+      'painter': '🎨',
+      'domestic_help': '🧺',
+      'caregiver': '🩺',
+      'driver': '🚗',
+      'gardener': '🌿',
+      'cleaner': '🧹',
+      'technician': '🔧'
+    } %}
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px;">
       {% for cat_id, label in categories %}
-        <div class="category-tile">{{ label }}</div>
+        <div class="card" style="padding: 16px 8px; text-align: center; border-radius: var(--radius-md);">
+          <div style="font-size: 28px; margin-bottom: 6px;">{{ icons.get(cat_id, '🛠️') }}</div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--color-primary-dark);">{{ label }}</div>
+        </div>
       {% endfor %}
     </div>
   </div>
 </section>
 
-<section class="section" style="padding-top:0;">
+<!-- AUTHENTICATION SECTION -->
+<section style="padding: 40px 0 60px 0;">
   <div class="container">
-    <div class="auth-shell card">
-      <div class="tab-row">
-        <button type="button" id="tab-login" class="active" onclick="switchTab('login')">{{ t('login_tab') }}</button>
-        <button type="button" id="tab-register" onclick="switchTab('register')">{{ t('register_tab') }}</button>
+    <div class="card" style="max-width: 500px; margin: 0 auto; padding: 32px;">
+
+      <!-- TAB BUTTONS -->
+      <div style="display: flex; background: #F1F5F9; border-radius: var(--radius-md); padding: 4px; margin-bottom: 24px;">
+        <button type="button" id="tab-login" class="btn btn-block" style="flex:1; border-radius: var(--radius-sm); font-size:14px; background:var(--color-primary); color:#FFFFFF;" onclick="switchTab('login')">
+          🔑 {{ t('login_tab') }}
+        </button>
+        <button type="button" id="tab-register" class="btn btn-block" style="flex:1; border-radius: var(--radius-sm); font-size:14px; background:transparent; color:var(--color-muted);" onclick="switchTab('register')">
+          📝 {{ t('register_tab') }}
+        </button>
+      </div>
+
+      <!-- QUICK DEMO FILL BUTTONS -->
+      <div style="background: #F8FAFC; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 12px; margin-bottom: 20px;">
+        <div style="font-size: 11.5px; font-weight: 700; color: var(--color-primary-dark); margin-bottom: 6px; text-transform: uppercase;">
+          ⚡ Quick Demo Logins:
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-sm btn-ghost" onclick="fillDemo('9333333331', 'customer123')" style="font-size:12px; padding:4px 8px;">
+            👤 Priya (Customer)
+          </button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="fillDemo('9111111111', 'worker123')" style="font-size:12px; padding:4px 8px;">
+            🛠️ Ramesh (Worker)
+          </button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="fillDemo('9000000000', 'admin123')" style="font-size:12px; padding:4px 8px;">
+            🏢 Federation Admin
+          </button>
+        </div>
       </div>
 
       <!-- LOGIN FORM -->
       <form id="login-form" method="POST" action="{{ url_for('login') }}">
         <div class="field">
           <label>{{ t('field_phone') }}</label>
-          <input type="text" name="phone" placeholder="e.g. 9333333331" required />
+          <input type="text" id="login-phone" name="phone" placeholder="e.g. 9333333331" required />
         </div>
         <div class="field">
           <label>{{ t('field_password') }}</label>
-          <input type="password" name="password" required />
+          <input type="password" id="login-password" name="password" required />
         </div>
-        <button class="btn btn-primary btn-block" type="submit">{{ t('submit_login') }}</button>
-        <p class="help-text" style="margin-top:14px;">
-          Demo accounts &mdash; Admin: 9000000000 / admin123 &nbsp;|&nbsp;
-          Worker: 9111111111 / worker123 &nbsp;|&nbsp;
-          Customer: 9333333331 / customer123
-        </p>
+        <button class="btn btn-primary btn-block" type="submit" style="padding: 13px; font-size: 15px;">
+          {{ t('submit_login') }}
+        </button>
       </form>
 
       <!-- REGISTER FORM -->
       <form id="register-form" method="POST" action="{{ url_for('register') }}" style="display:none;">
-        <fieldset class="chip-select" style="margin-bottom:20px;">
-          <label class="chip"><input type="radio" name="role" value="customer" checked onchange="onRoleChange()"> {{ t('role_customer') }}</label>
-          <label class="chip"><input type="radio" name="role" value="worker" onchange="onRoleChange()"> {{ t('role_worker') }}</label>
+        <fieldset class="chip-select" style="margin-bottom: 18px; border:none; padding:0;">
+          <label class="chip" style="font-weight:600;"><input type="radio" name="role" value="customer" checked onchange="onRoleChange()"> {{ t('role_customer') }}</label>
+          <label class="chip" style="font-weight:600;"><input type="radio" name="role" value="worker" onchange="onRoleChange()"> {{ t('role_worker') }}</label>
         </fieldset>
 
         <div class="field">
           <label>{{ t('field_name') }}</label>
-          <input type="text" name="name" required />
+          <input type="text" name="name" placeholder="Full Legal Name" required />
         </div>
         <div class="field-row">
           <div class="field">
             <label>{{ t('field_phone') }}</label>
-            <input type="text" name="phone" required />
+            <input type="text" name="phone" placeholder="10-digit mobile" required />
           </div>
           <div class="field">
             <label>{{ t('field_password') }}</label>
@@ -74,7 +141,7 @@
         </div>
 
         <div class="field" id="skills-field" style="display:none;">
-          <label>{{ t('field_skills') }}</label>
+          <label>{{ t('field_skills') }} (Select your certified trades)</label>
           <div class="chip-select">
             {% for cat_id, label in categories %}
               <label class="chip"><input type="checkbox" name="skills" value="{{ cat_id }}"> {{ label }}</label>
@@ -90,22 +157,35 @@
           </select>
         </div>
 
-        <button class="btn btn-primary btn-block" type="submit">{{ t('submit_register') }}</button>
+        <button class="btn btn-primary btn-block" type="submit" style="padding: 13px; font-size: 15px;">
+          {{ t('submit_register') }}
+        </button>
       </form>
+
     </div>
   </div>
 </section>
 
 <script>
   function switchTab(tab) {
-    document.getElementById("tab-login").classList.toggle("active", tab === "login");
-    document.getElementById("tab-register").classList.toggle("active", tab === "register");
-    document.getElementById("login-form").style.display = tab === "login" ? "block" : "none";
-    document.getElementById("register-form").style.display = tab === "register" ? "block" : "none";
+    const isLogin = tab === 'login';
+    document.getElementById("tab-login").style.background = isLogin ? "var(--color-primary)" : "transparent";
+    document.getElementById("tab-login").style.color = isLogin ? "#FFFFFF" : "var(--color-muted)";
+    document.getElementById("tab-register").style.background = !isLogin ? "var(--color-primary)" : "transparent";
+    document.getElementById("tab-register").style.color = !isLogin ? "#FFFFFF" : "var(--color-muted)";
+    document.getElementById("login-form").style.display = isLogin ? "block" : "none";
+    document.getElementById("register-form").style.display = !isLogin ? "block" : "none";
   }
+
   function onRoleChange() {
     const workerSelected = document.querySelector('input[name="role"]:checked').value === "worker";
     document.getElementById("skills-field").style.display = workerSelected ? "block" : "none";
+  }
+
+  function fillDemo(phone, pass) {
+    switchTab('login');
+    document.getElementById('login-phone').value = phone;
+    document.getElementById('login-password').value = pass;
   }
 </script>
 

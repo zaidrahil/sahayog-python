@@ -1,97 +1,888 @@
 {% extends "base.html" %}
-{% block title %}My bookings - Sahayog{% endblock %}
+{% block title %}Customer Dashboard &mdash; Sahayog{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+  #map {
+    height: 250px;
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--color-border);
+    margin: 10px 0 12px 0;
+    z-index: 1;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.04);
+  }
+  .map-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .hub-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .hub-btn {
+    font-size: 11.5px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: #FFFFFF;
+    border: 1.2px solid var(--color-border);
+    cursor: pointer;
+    color: var(--color-primary-dark);
+    font-weight: 600;
+    font-family: var(--font-body);
+    transition: all 0.15s ease;
+  }
+  .hub-btn:hover {
+    border-color: var(--color-primary);
+    background: var(--color-primary-soft);
+    transform: translateY(-1px);
+  }
+
+  /* Progress Stepper */
+  .stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    margin: 14px 0 16px 0;
+    padding: 0 8px;
+  }
+  .stepper::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    right: 20px;
+    height: 2px;
+    background: #E2E8F0;
+    z-index: 1;
+  }
+  .step-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+  }
+  .step-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    border: 2px solid #CBD5E1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748B;
+    transition: all 0.2s ease;
+  }
+  .step-node.active .step-dot {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(15, 81, 50, 0.2);
+  }
+  .step-node.done .step-dot {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    color: #FFFFFF;
+  }
+  .step-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--color-muted);
+    margin-top: 4px;
+    text-align: center;
+  }
+  .step-node.active .step-label {
+    color: var(--color-primary-dark);
+    font-weight: 700;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="container" style="padding-top: 10px;">
 
-<div class="page-header">
-  <div class="eyebrow">CUSTOMER</div>
-  <h1>{{ t('customer_dashboard') }}</h1>
-</div>
-
-<div class="grid grid-2" style="align-items:start;">
-  <div class="card">
-    <h3>{{ t('book_new') }}</h3>
-    <form method="POST" action="{{ url_for('customer_book') }}">
-      <div class="field">
-        <label>{{ t('field_category') }}</label>
-        <select name="category" required>
-          {% for cat_id, label in categories %}
-            <option value="{{ cat_id }}">{{ label }}</option>
-          {% endfor %}
-        </select>
+  <!-- DASHBOARD HERO BANNER -->
+  <div class="dashboard-hero">
+    <div>
+      <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--color-accent-border); margin-bottom: 4px;">
+        COOPERATIVE HOUSEHOLD SERVICES
       </div>
-      <div class="field">
-        <label>{{ t('field_description') }}</label>
-        <textarea name="description" rows="3" placeholder="e.g. Ceiling fan making a grinding noise"></textarea>
+      <h1>Welcome back, {{ current_user['name'] }} 👋</h1>
+      <p>Book verified cooperative workers with zero advance fees, transparent union-regulated pricing, and pay directly after service completion.</p>
+      <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="{{ url_for('customer_settings') }}" class="btn btn-sm" style="background: rgba(255,255,255,0.18); color: #fff; border: 1.2px solid rgba(255,255,255,0.35); backdrop-filter: blur(4px); font-weight: 600;">
+          ⚙️ Profile &amp; Account Settings
+        </a>
       </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Latitude</label>
-          <input type="text" name="lat" value="17.4450" required />
-        </div>
-        <div class="field">
-          <label>Longitude</label>
-          <input type="text" name="lng" value="78.3950" required />
-        </div>
+    </div>
+    <div class="hero-stat-badges">
+      <div class="hero-stat-badge">
+        <div class="stat-num">{{ bookings|length }}</div>
+        <div class="stat-lbl">Total Bookings</div>
       </div>
-      <p class="help-text">Demo tip: use lat 17.44-17.45 / lng 78.38-78.40 (Hyderabad) to match seeded workers, or 18.51-18.57 / 73.85-73.91 (Pune).</p>
-      <div class="field checkbox-row">
-        <input type="checkbox" name="urgent" id="urgent" />
-        <label for="urgent" style="margin:0;">{{ t('field_urgent') }}</label>
+      <div class="hero-stat-badge">
+        <div class="stat-num">&#8377;0 Advance</div>
+        <div class="stat-lbl">Pay After Work</div>
       </div>
-      <button class="btn btn-primary btn-block" type="submit">{{ t('submit_booking') }}</button>
-    </form>
+      <div class="hero-stat-badge">
+        <div class="stat-num">2.5 km</div>
+        <div class="stat-lbl">Co-op Geofence</div>
+      </div>
+    </div>
   </div>
 
-  <div class="card">
-    <h3>Booking history</h3>
-    {% if bookings|length == 0 %}
-      <div class="empty-state">{{ t('no_bookings') }}</div>
-    {% else %}
-      {% for b in bookings %}
-        <div>
-          <div class="flex-between">
-            <strong>{{ category_label(b['category']) }}</strong>
-            <span>
-              <span class="badge badge-{{ b['status'] }}">{{ b['status'] }}</span>
-              {% if b['urgent'] %}<span class="badge badge-urgent">urgent</span>{% endif %}
-            </span>
-          </div>
-          <p class="muted" style="margin:6px 0;">{{ b['description'] }}</p>
-          <p class="help-text">
-            Booked {{ b['created_at'][:16] }}
-            {% if b['distance_km'] is not none %} &middot; matched worker {{ b['distance_km'] }} km away{% endif %}
-            {% if b['price'] %} &middot; &#8377;{{ b['price'] }}{% endif %}
-          </p>
-          {% if b['status'] == 'completed' %}
-            <div style="margin-top:8px; display:flex; gap:8px;">
-              <form method="POST" action="{{ url_for('customer_pay', booking_id=b['id']) }}">
-                <button class="btn btn-sm btn-ghost" type="submit">Pay now</button>
-              </form>
-              <button class="btn btn-sm btn-secondary" type="button" onclick="openRateForm('{{ b['id'] }}')">Rate</button>
-            </div>
-            <form id="rate-form-{{ b['id'] }}" method="POST" action="{{ url_for('customer_rate', booking_id=b['id']) }}" style="display:none; margin-top:10px; background:var(--color-bg); padding:12px; border-radius:8px;">
-              <div class="field">
-                <label>Stars</label>
-                <select name="stars"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select>
-              </div>
-              <div class="field">
-                <label>Comment (optional)</label>
-                <textarea name="comment" rows="2"></textarea>
-              </div>
-              <button class="btn btn-sm btn-primary" type="submit">Submit rating</button>
-            </form>
-          {% endif %}
+  <!-- TAB NAVIGATION BAR -->
+  <div class="customer-tabs-nav" role="tablist">
+    <button type="button" class="customer-tab-btn active" id="tab-btn-book" onclick="switchCustomerTab('book')" role="tab" aria-selected="true" aria-controls="pane-book">
+      <div class="customer-tab-icon">⚡</div>
+      <div class="customer-tab-text">
+        <div class="customer-tab-title">
+          <span>Book a Verified Worker</span>
         </div>
-        {% if not loop.last %}<hr class="divider" />{% endif %}
-      {% endfor %}
-    {% endif %}
+        <div class="customer-tab-desc">Instant cooperative dispatch within 2.5 km &middot; Zero advance payment</div>
+      </div>
+    </button>
+    <button type="button" class="customer-tab-btn" id="tab-btn-bookings" onclick="switchCustomerTab('bookings')" role="tab" aria-selected="false" aria-controls="pane-bookings">
+      <div class="customer-tab-icon">📋</div>
+      <div class="customer-tab-text">
+        <div class="customer-tab-title">
+          <span>My Bookings &amp; Service Tracker</span>
+          <span class="customer-tab-badge {% if bookings|selectattr('status', 'in', ['matched', 'accepted', 'pending'])|list|length > 0 %}has-active{% endif %}">
+            {{ bookings|length }}
+          </span>
+        </div>
+        <div class="customer-tab-desc">Live status, technician details, completion OTP &amp; settlements</div>
+      </div>
+    </button>
+  </div>
+
+  <!-- TAB PANE 1: BOOKING STUDIO -->
+  <div id="pane-book" class="customer-tab-pane" role="tabpanel" aria-labelledby="tab-btn-book">
+    <div class="card" style="padding: 24px;">
+      <div class="card-header-row" style="margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid var(--color-border);">
+        <div>
+          <h3 style="font-size: 19px; margin: 0 0 4px 0;">⚡ Book a Verified Worker</h3>
+          <span class="help-text" style="margin:0;">Select your trade, verify fair union rate, set location, and match with the nearest certified worker.</span>
+        </div>
+        <span class="badge badge-verified" style="font-size: 12px; padding: 6px 12px;">✓ 100% Co-op Certified &middot; &#8377;0 Advance</span>
+      </div>
+
+      <form method="POST" action="{{ url_for('customer_book') }}">
+        <div class="booking-studio-grid">
+          <!-- LEFT STUDIO COLUMN: Category, Tariff, Description, Language -->
+          <div class="booking-studio-col">
+            <!-- 1. CATEGORY VISUAL TILES -->
+            <div class="field">
+              <label>1. Select Service Category</label>
+              <div class="category-select-grid">
+                {% set icons = {
+                  'electrician': '⚡',
+                  'plumber': '🚰',
+                  'carpenter': '🪚',
+                  'painter': '🎨',
+                  'domestic_help': '🧺',
+                  'caregiver': '🩺',
+                  'driver': '🚗',
+                  'gardener': '🌿',
+                  'cleaner': '🧹',
+                  'technician': '🔧'
+                } %}
+                {% for cat_id, label in categories %}
+                  <div class="category-tile-btn {% if loop.first %}active{% endif %}" onclick="selectCategory('{{ cat_id }}', this)">
+                    <span class="cat-icon">{{ icons.get(cat_id, '🛠️') }}</span>
+                    <span class="cat-name">{{ label }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+              <input type="hidden" name="category" id="selected-category-input" value="{{ categories[0][0] }}" required />
+            </div>
+
+            <!-- UNION RATE CARD DRAWER & INTERACTIVE SUB-TASK COST ESTIMATOR -->
+            <div class="rate-card-drawer" id="rate-card-drawer">
+              <div class="rate-card-header" onclick="toggleRateCard()">
+                <h4>
+                  <span>📜</span> Union-Approved Fair Tariff &amp; Sub-Task Estimator
+                </h4>
+                <span class="rate-card-toggle-btn" id="rate-card-toggle-text">
+                  <span>Hide Rates</span> ▲
+                </span>
+              </div>
+              <div class="rate-card-body" id="rate-card-content">
+                <div class="rate-card-metrics">
+                  <div class="rate-metric-item">
+                    <div class="rate-metric-val">&#8377;250</div>
+                    <div class="rate-metric-lbl">Base Inspection Ceiling</div>
+                  </div>
+                  <div class="rate-metric-item">
+                    <div class="rate-metric-val">&#8377;150 / hr</div>
+                    <div class="rate-metric-lbl">Standard Hourly Ceiling</div>
+                  </div>
+                  <div class="rate-metric-item">
+                    <div class="rate-metric-val" style="color: #16A34A;">0% Surge</div>
+                    <div class="rate-metric-lbl">Surge-Free Guarantee</div>
+                  </div>
+                </div>
+
+                <div class="subtask-chips-container">
+                  <div class="subtask-chips-label">
+                    <span>Select common task for instant estimate &amp; auto-fill:</span>
+                    <span style="font-weight: 600; font-size: 11px; color: #065F46;">Co-op Standardized</span>
+                  </div>
+                  <div class="subtask-chips-grid" id="subtask-chips-grid">
+                    <!-- Dynamically rendered via JS based on selected category -->
+                  </div>
+                </div>
+
+                <div class="cost-estimator-banner" id="cost-estimator-banner" style="display: none;">
+                  <div>
+                    <span>Estimated Union Tariff:</span>
+                    <strong id="estimated-cost-display">&#8377;250 &ndash; &#8377;350</strong>
+                  </div>
+                  <span style="font-size: 11px; color: #065F46;">🛡️ Pay after work &middot; 87% to worker &middot; 5% welfare &middot; 8% co-op</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. REQUIREMENT DESCRIPTION -->
+            <div class="field">
+              <label>2. Describe Your Requirement</label>
+              <textarea name="description" id="requirement-description" rows="2" placeholder="e.g., Ceiling fan making grinding noise, need urgent capacitor check" required></textarea>
+              <div class="help-text">Click any union sub-task chip above to auto-fill or type your custom details.</div>
+            </div>
+
+            <!-- 3. PREFERRED COMMUNICATION LANGUAGE -->
+            <div class="field">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2px;">
+                <label style="margin:0;">3. Preferred Worker Communication Language</label>
+                <span style="font-size: 11px; font-weight: 700; color: #16A34A;">🗣️ Language-Gated Dispatch</span>
+              </div>
+              <p class="help-text" style="margin-top: 2px; margin-bottom: 6px;">
+                Strict cooperative matching: Only verified workers fluent in your chosen language are dispatched.
+              </p>
+              <div class="lang-selector-grid">
+                <label class="lang-chip-label">
+                  <input type="radio" name="preferred_lang" value="en" checked />
+                  <span class="lang-chip">🇬🇧 English</span>
+                </label>
+                <label class="lang-chip-label">
+                  <input type="radio" name="preferred_lang" value="hi" />
+                  <span class="lang-chip">🇮🇳 हिन्दी (Hindi)</span>
+                </label>
+                <label class="lang-chip-label">
+                  <input type="radio" name="preferred_lang" value="te" />
+                  <span class="lang-chip">🇮🇳 తెలుగు (Telugu)</span>
+                </label>
+                <label class="lang-chip-label">
+                  <input type="radio" name="preferred_lang" value="mr" />
+                  <span class="lang-chip">🇮🇳 मराठी (Marathi)</span>
+                </label>
+                <label class="lang-chip-label">
+                  <input type="radio" name="preferred_lang" value="bn" />
+                  <span class="lang-chip">🇮🇳 বাংলা (Bengali)</span>
+                </label>
+                <label class="lang-chip-label">
+                  <input type="radio" name="preferred_lang" value="ta" />
+                  <span class="lang-chip">🇮🇳 தமிழ் (Tamil)</span>
+                </label>
+                <label class="lang-chip-label">
+                  <input type="radio" name="preferred_lang" value="kn" />
+                  <span class="lang-chip">🇮🇳 ಕನ್ನಡ (Kannada)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT STUDIO COLUMN: Location & Geofence Map, Emergency Toggle, Dispatch Button -->
+          <div class="booking-studio-col">
+            <!-- 4. SERVICE LOCATION & GEOFENCE STUDIO -->
+            <div class="field" style="margin-bottom: 0;">
+              <div class="map-toolbar">
+                <label style="margin:0;">4. Service Location &amp; 2.5 km Geofence</label>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="detectLocation()" id="detect-loc-btn">
+                  📍 Detect My Location
+                </button>
+              </div>
+
+              <div class="hub-buttons">
+                <span style="font-size: 11.5px; color: var(--color-muted); font-weight: 600;">Quick Hubs:</span>
+                <button type="button" class="hub-btn" onclick="setCoordinates(17.4450, 78.3950, 'Hyderabad Cluster')">🏢 Hyderabad (17.44, 78.40)</button>
+                <button type="button" class="hub-btn" onclick="setCoordinates(18.5204, 73.8567, 'Pune Cluster')">🏛️ Pune (18.52, 73.86)</button>
+              </div>
+
+              <div id="map" style="height: 270px;"></div>
+
+              <div style="display: flex; gap: 14px; font-size: 11px; color: var(--color-muted); margin-bottom: 8px;">
+                <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:#2563EB;"></span> Your Location</span>
+                <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:rgba(21, 128, 61, 0.4); border:1px solid #15803D;"></span> 2.5 km Geofence</span>
+                <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:#0F5132;"></span> Available Co-op Workers</span>
+              </div>
+
+              <div class="field-row" style="margin-top: 6px;">
+                <div class="field" style="margin-bottom: 0;">
+                  <label style="font-size: 11.5px; margin-bottom: 2px;">Latitude</label>
+                  <input type="text" id="lat-input" name="lat" value="17.4450" required onchange="onManualCoordinateChange()" />
+                </div>
+                <div class="field" style="margin-bottom: 0;">
+                  <label style="font-size: 11.5px; margin-bottom: 2px;">Longitude</label>
+                  <input type="text" id="lng-input" name="lng" value="78.3950" required onchange="onManualCoordinateChange()" />
+                </div>
+              </div>
+              <p class="help-text" id="location-status">💡 Click or drag the blue pin on the map to fine-tune your address.</p>
+            </div>
+
+            <!-- URGENCY TOGGLE -->
+            <div class="field" style="background: var(--color-accent-soft); border: 1px solid var(--color-accent-border); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 4px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <input type="checkbox" name="urgent" id="urgent" style="width:18px; height:18px; accent-color: var(--color-accent-dark);" />
+                <div>
+                  <label for="urgent" style="margin:0; cursor:pointer; color:#92400E; font-size:13.5px;">🚨 Emergency On-Demand Dispatch</label>
+                  <div style="font-size:11.5px; color:#B45309;">Prioritizes immediate dispatch within 15 minutes.</div>
+                </div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary btn-block" type="submit" style="font-size: 16px; padding: 14px; box-shadow: 0 4px 14px rgba(15, 81, 50, 0.2);">
+              🚀 Match Nearest Worker &amp; Pay After Service
+            </button>
+            <div style="font-size: 11.5px; color: var(--color-muted); text-align: center; margin-top: -6px;">
+              🛡️ Guaranteed no surge pricing &middot; Pay technician directly only after work is done
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TAB PANE 2: BOOKINGS & SERVICE TRACKER -->
+  <div id="pane-bookings" class="customer-tab-pane" style="display: none;" role="tabpanel" aria-labelledby="tab-btn-bookings">
+    <div class="bookings-tracker-wrapper">
+      <div class="card" style="padding: 24px;">
+        <div class="card-header-row" style="margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid var(--color-border);">
+          <div>
+            <h3 style="font-size: 19px; margin: 0 0 4px 0;">📋 Your Bookings &amp; Live Service Tracker</h3>
+            <span class="help-text" style="margin:0;">Live status, matched technician credentials, completion OTP, and transparent payments.</span>
+          </div>
+          <span class="badge badge-verified" style="font-size: 12px; padding: 6px 12px;">✓ 100% Transparent Co-op Settlement</span>
+        </div>
+
+        {% if bookings|length == 0 %}
+          <div class="empty-state" style="padding: 56px 24px; text-align: center;">
+            <div style="font-size: 52px; margin-bottom: 14px;">🛠️</div>
+            <h4 style="font-size: 19px; margin-bottom: 6px;">No bookings yet</h4>
+            <p style="font-size: 14px; color: var(--color-muted); max-width: 460px; margin: 0 auto 22px auto;">
+              You haven't requested any services yet. Switch to the booking studio to match with certified cooperative technicians in your area.
+            </p>
+            <button type="button" class="btn btn-primary" onclick="switchCustomerTab('book')" style="padding: 10px 22px;">
+              ⚡ Book a Verified Worker Now
+            </button>
+          </div>
+        {% else %}
+          {% set icons = {
+            'electrician': '⚡',
+            'plumber': '🚰',
+            'carpenter': '🪚',
+            'painter': '🎨',
+            'domestic_help': '🧺',
+            'caregiver': '🩺',
+            'driver': '🚗',
+            'gardener': '🌿',
+            'cleaner': '🧹',
+            'technician': '🔧'
+          } %}
+
+          {% for b in bookings %}
+            <div class="booking-card" style="margin-bottom: 20px;">
+              <!-- TOP BAR -->
+              <div class="booking-card-top">
+                <div class="booking-title">
+                  <span>{{ icons.get(b['category'], '🛠️') }}</span>
+                  <span>{{ category_label(b['category']) }}</span>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center; flex-wrap: wrap;">
+                  {% set lang_names = {'en': 'English', 'hi': 'Hindi', 'te': 'Telugu', 'mr': 'Marathi', 'bn': 'Bengali', 'ta': 'Tamil', 'kn': 'Kannada'} %}
+                  <span class="lang-badge">🗣️ {{ lang_names.get(b['language'], b['language']|upper if b['language'] else 'English') }}</span>
+                  <span class="badge badge-{{ b['status'] }}">{{ b['status'] }}</span>
+                  {% if b['urgent'] %}<span class="badge badge-urgent">urgent</span>{% endif %}
+                  {% if b['invoice_no'] %}
+                    <span class="badge badge-completed">✓ Paid &amp; Settled</span>
+                  {% elif b['status'] == 'completed' %}
+                    <span class="badge badge-pending">Payment Due</span>
+                  {% else %}
+                    <span class="badge badge-matched">Pay After Work</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <p style="margin: 8px 0 12px 0; font-size: 14px; color: var(--color-ink); line-height: 1.5;">
+                {{ b['description'] }}
+              </p>
+
+              <!-- VISUAL STEPPER TIMELINE -->
+              <div class="stepper">
+                <div class="step-node done">
+                  <div class="step-dot">✓</div>
+                  <div class="step-label">Booked</div>
+                </div>
+                <div class="step-node {% if b['status'] in ['matched', 'accepted', 'completed'] %}done{% else %}active{% endif %}">
+                  <div class="step-dot">{% if b['status'] in ['matched', 'accepted', 'completed'] %}✓{% else %}2{% endif %}</div>
+                  <div class="step-label">Matched</div>
+                </div>
+                <div class="step-node {% if b['status'] in ['accepted', 'completed'] %}done{% elif b['status'] == 'matched' %}active{% else %}{% endif %}">
+                  <div class="step-dot">{% if b['status'] in ['accepted', 'completed'] %}✓{% else %}3{% endif %}</div>
+                  <div class="step-label">In Progress</div>
+                </div>
+                <div class="step-node {% if b['status'] == 'completed' %}done{% else %}{% endif %}">
+                  <div class="step-dot">{% if b['status'] == 'completed' %}✓{% else %}4{% endif %}</div>
+                  <div class="step-label">Settled</div>
+                </div>
+              </div>
+
+              <!-- WORKER RECIPROCAL DETAILS (IF MATCHED) -->
+              {% if b['worker_name'] %}
+                <div class="worker-reciprocal-box">
+                  <div class="worker-info-left">
+                    <div class="worker-avatar">{{ b['worker_name'][0]|upper }}</div>
+                    <div>
+                      <div style="font-weight: 700; font-size: 14px; color: var(--color-primary-dark);">
+                        {{ b['worker_name'] }} <span style="color: #16A34A; font-size: 12px;">✓ Verified</span>
+                      </div>
+                      <div style="font-size: 12px; color: var(--color-muted);">
+                        ★ {{ b['worker_rating'] }} ({{ b['worker_rating_count'] or 1 }} reviews) &middot; {{ b['distance_km'] or 0.8 }} km away
+                      </div>
+                      {% if b['worker_spoken_languages'] %}
+                        <div style="font-size: 11.5px; color: var(--color-primary-dark); margin-top: 3px;">
+                          🗣️ Fluent in: <strong>{{ b['worker_spoken_languages'].upper().replace(',', ', ') }}</strong>
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <a href="tel:{{ b['worker_phone'] }}" class="call-btn">
+                    📞 {{ b['worker_phone'] }}
+                  </a>
+                </div>
+              {% endif %}
+
+              <!-- JOB COMPLETION OTP VAULT -->
+              {% if b['status'] in ['matched', 'accepted'] and b['completion_otp'] %}
+                <div class="otp-vault-box">
+                  <div class="otp-vault-top">
+                    <div>
+                      <div style="font-size: 11.5px; font-weight: 800; color: #92400E; letter-spacing: 0.05em;">
+                        🔒 SERVICE COMPLETION VERIFICATION OTP
+                      </div>
+                      <div style="font-size: 11.5px; color: #B45309; margin-top: 2px;">
+                        Give this code to the worker only after inspecting the completed job. Pay directly afterwards.
+                      </div>
+                    </div>
+                    <div class="otp-vault-code">{{ b['completion_otp'] }}</div>
+                  </div>
+                </div>
+              {% endif %}
+
+              <div style="font-size: 12.5px; color: var(--color-muted); display:flex; justify-content:space-between; margin-top:10px;">
+                <span>Requested: {{ b['created_at'][:16] }}</span>
+                {% if b['price'] %}
+                  <span style="font-weight: 700; color: var(--color-primary-dark);">Agreed Tariff: &#8377;{{ b['price'] }}</span>
+                {% endif %}
+              </div>
+
+              <!-- COMPLETION & SETTLEMENT RECEIPT -->
+              {% if b['status'] == 'completed' %}
+                {% if b['invoice_no'] %}
+                  <div class="receipt-box">
+                    <div style="font-weight: 700; font-size: 13.5px; color: var(--color-primary-dark); display:flex; justify-content:space-between;">
+                      <span>🧾 Invoice: {{ b['invoice_no'] }}</span>
+                      <span style="color: #16A34A;">✓ Paid &amp; Settled</span>
+                    </div>
+                    <div class="receipt-row"><span>Direct Worker Payout (87%):</span> <strong>&#8377;{{ b['worker_payout'] }}</strong></div>
+                    <div class="receipt-row"><span>Worker Welfare Wallet (5%):</span> <strong style="color:#16A34A;">&#8377;{{ b['welfare_contribution'] }}</strong></div>
+                    <div class="receipt-row"><span>Federation Administration (8%):</span> <span>&#8377;{{ b['federation_commission'] }}</span></div>
+                    <div class="receipt-row receipt-total"><span>Total Paid:</span> <span>&#8377;{{ b['price'] }}</span></div>
+                  </div>
+                  <button class="btn btn-sm btn-secondary" type="button" onclick="openRateForm('{{ b['id'] }}')">⭐ Rate Technician</button>
+                {% else %}
+                  <div style="margin-top: 12px; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: var(--radius-md); padding: 14px 16px;">
+                    <div style="font-weight: 700; color: #065F46; font-size: 14px; margin-bottom: 4px;">
+                      ✓ Job Completed by Worker &middot; Fee Due: &#8377;{{ b['price'] }}
+                    </div>
+                    <div style="font-size: 12.5px; color: #047857; margin-bottom: 12px;">
+                      The completion OTP was authenticated. Please inspect the completed work and pay &#8377;{{ b['price'] }} via UPI.
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                      <form method="POST" action="{{ url_for('customer_pay', booking_id=b['id']) }}">
+                        <button class="btn btn-sm btn-primary" type="submit">💳 Pay &#8377;{{ b['price'] }} via UPI</button>
+                      </form>
+                      <button class="btn btn-sm btn-ghost" type="button" onclick="openRateForm('{{ b['id'] }}')">⭐ Rate</button>
+                    </div>
+                  </div>
+                {% endif %}
+
+                <!-- RATING FORM -->
+                <form id="rate-form-{{ b['id'] }}" method="POST" action="{{ url_for('customer_rate', booking_id=b['id']) }}" style="display:none; margin-top:12px; background:var(--color-bg); padding:16px; border-radius:var(--radius-md); border:1px solid var(--color-border);">
+                  <h4 style="margin:0 0 10px 0; font-size:14px;">Submit Rating for {{ b['worker_name'] or 'Worker' }}</h4>
+                  <div class="field">
+                    <label>Overall Experience</label>
+                    <select name="stars" style="max-width: 160px;">
+                      <option value="5">★★★★★ (5/5 Excellent)</option>
+                      <option value="4">★★★★☆ (4/5 Good)</option>
+                      <option value="3">★★★☆☆ (3/5 Average)</option>
+                      <option value="2">★★☆☆☆ (2/5 Poor)</option>
+                      <option value="1">★☆☆☆☆ (1/5 Unsatisfactory)</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Feedback / Compliments (optional)</label>
+                    <textarea name="comment" rows="2" placeholder="Prompt service, polite demeanor, clean workmanship..."></textarea>
+                  </div>
+                  <button class="btn btn-sm btn-primary" type="submit">Submit Feedback</button>
+                </form>
+              {% endif %}
+
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-  function openRateForm(id) {
-    document.getElementById('rate-form-' + id).style.display = 'block';
-  }
-</script>
+  const tradeSubTasks = {
+    electrician: [
+      { name: "Ceiling Fan Repair / Bearing Replacement", min: 250, max: 350 },
+      { name: "Switchboard / MCB Tripping Fix", min: 200, max: 300 },
+      { name: "Inverter & Battery Wiring Troubleshooting", min: 350, max: 550 },
+      { name: "Light Fixture / Chandelier Hanging", min: 200, max: 350 },
+      { name: "Short Circuit & Earthing Inspection", min: 300, max: 500 }
+    ],
+    plumber: [
+      { name: "Tap Leakage & Spindle Valve Fix", min: 180, max: 280 },
+      { name: "Washbasin / Kitchen Drain Clog Clearing", min: 250, max: 400 },
+      { name: "Flush Tank / Cistern Valve Overhaul", min: 300, max: 450 },
+      { name: "Overhead Water Tank Float Valve Setup", min: 350, max: 500 },
+      { name: "PPR / CPVC Pipe Joint Leakage Repair", min: 300, max: 500 }
+    ],
+    carpenter: [
+      { name: "Main Door Lock & Mortise Latch Fitting", min: 250, max: 400 },
+      { name: "Modular Cabinet Soft-Close Hinge Alignment", min: 200, max: 350 },
+      { name: "Wooden Bed Frame / Squeak Fixing", min: 300, max: 500 },
+      { name: "Custom Floating Shelf Wall Mounting", min: 250, max: 450 },
+      { name: "Window Mesh Frame Screen Replacement", min: 350, max: 600 }
+    ],
+    painter: [
+      { name: "Single Accent Wall Water-based Emulsion", min: 500, max: 900 },
+      { name: "Waterproofing Dampness Patch & Putty", min: 450, max: 800 },
+      { name: "Balcony Iron Grill Anti-Rust & Enamel", min: 600, max: 1100 },
+      { name: "Door & Window Wood Polish Touchup", min: 400, max: 700 }
+    ],
+    domestic_help: [
+      { name: "Kitchen Counter & Chimney Degreasing", min: 350, max: 550 },
+      { name: "Full 2BHK Deep Mopping & Sanitization", min: 300, max: 500 },
+      { name: "Meal Prep & Dishwashing Support (3 hrs)", min: 250, max: 400 },
+      { name: "Wardrobe Organizing & Ironing Assistance", min: 250, max: 400 }
+    ],
+    caregiver: [
+      { name: "Senior Citizen Day Assistance & Walking (4 hrs)", min: 500, max: 800 },
+      { name: "Post-Surgery Mobility & Dressing Care", min: 600, max: 1000 },
+      { name: "Vitals Check (BP/Pulse) & Medication Charting", min: 300, max: 500 },
+      { name: "Bed-ridden Patient Assisted Bathing", min: 450, max: 750 }
+    ],
+    driver: [
+      { name: "City Chauffeur On-Demand (4 Hours Shift)", min: 450, max: 700 },
+      { name: "Airport Pick & Drop Safe Transfer", min: 400, max: 600 },
+      { name: "Full Day City / Highway Driving (8 Hours)", min: 800, max: 1300 },
+      { name: "Night Return Driving Service (Within 25 km)", min: 500, max: 750 }
+    ],
+    gardener: [
+      { name: "Lawn Mowing & Shrub Hedge Trimming", min: 350, max: 600 },
+      { name: "Plant Repotting with Organic Manure Mix", min: 300, max: 500 },
+      { name: "Organic Weed Removal & Insecticidal Spray", min: 250, max: 450 },
+      { name: "Balcony Garden Drip System Inspection", min: 300, max: 500 }
+    ],
+    cleaner: [
+      { name: "Bathroom Tile Descaling & Acid-Free Scrub", min: 350, max: 550 },
+      { name: "Fabric Sofa 3-Seater Shampoo & Vacuum", min: 500, max: 850 },
+      { name: "Balcony Floor Washing & Glass Pane Clean", min: 300, max: 500 },
+      { name: "Kitchen Overhead Exhaust & Tile Cleaning", min: 400, max: 650 }
+    ],
+    technician: [
+      { name: "Split AC Foam Filter & Jet Cleaning", min: 350, max: 550 },
+      { name: "Refrigerator Cooling Coil & Thermostat Test", min: 400, max: 650 },
+      { name: "Washing Machine Drum Vibration & Pump Fix", min: 400, max: 700 },
+      { name: "RO Water Purifier Membrane & Sediment Replacement", min: 350, max: 600 }
+    ]
+  };
 
+  function selectCategory(catId, element) {
+    document.querySelectorAll('.category-tile-btn').forEach(btn => btn.classList.remove('active'));
+    element.classList.add('active');
+    document.getElementById('selected-category-input').value = catId;
+    renderSubTasks(catId);
+  }
+
+  function renderSubTasks(catId) {
+    const container = document.getElementById('subtask-chips-grid');
+    if (!container) return;
+    container.innerHTML = '';
+    const subTasks = tradeSubTasks[catId] || [];
+    
+    subTasks.forEach(task => {
+      const chip = document.createElement('div');
+      chip.className = 'subtask-chip';
+      chip.innerHTML = `<span>${task.name}</span> <span class="chip-price">&#8377;${task.min}&ndash;&#8377;${task.max}</span>`;
+      chip.onclick = function() {
+        document.querySelectorAll('.subtask-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        
+        const descArea = document.getElementById('requirement-description');
+        if (descArea) {
+          descArea.value = `${task.name} (Estimated union rate: ₹${task.min}–₹${task.max})`;
+        }
+        
+        const banner = document.getElementById('cost-estimator-banner');
+        const display = document.getElementById('estimated-cost-display');
+        if (banner && display) {
+          banner.style.display = 'flex';
+          display.innerHTML = `&#8377;${task.min} &ndash; &#8377;${task.max}`;
+        }
+      };
+      container.appendChild(chip);
+    });
+
+    const banner = document.getElementById('cost-estimator-banner');
+    if (banner) banner.style.display = 'none';
+  }
+
+  function toggleRateCard() {
+    const body = document.getElementById('rate-card-content');
+    const text = document.getElementById('rate-card-toggle-text');
+    if (!body || !text) return;
+    if (body.style.display === 'none') {
+      body.style.display = 'block';
+      text.innerHTML = '<span>Hide Rates</span> ▲';
+    } else {
+      body.style.display = 'none';
+      text.innerHTML = '<span>View Rates</span> ▼';
+    }
+  }
+
+  function openRateForm(id) {
+    const form = document.getElementById('rate-form-' + id);
+    if (form) {
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+  }
+
+  // --- LEAFLET MAP CONTROLLER ---
+  let map, customerMarker, dispatchCircle, workerLayerGroup;
+  const workerPins = {{ worker_pins|tojson if worker_pins is defined else '[]' }};
+
+  function initMap() {
+    const initialLat = parseFloat(document.getElementById('lat-input').value) || 17.4450;
+    const initialLng = parseFloat(document.getElementById('lng-input').value) || 78.3950;
+
+    map = L.map('map').setView([initialLat, initialLng], 14);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    // 2.5 km Geofence
+    dispatchCircle = L.circle([initialLat, initialLng], {
+      color: '#15803D',
+      fillColor: '#16A34A',
+      fillOpacity: 0.12,
+      weight: 2,
+      dashArray: '5, 5',
+      radius: 2500
+    }).addTo(map);
+
+    // Draggable Customer Pin
+    customerMarker = L.marker([initialLat, initialLng], { draggable: true })
+      .addTo(map)
+      .bindPopup("<b>📍 Your Service Location</b><br>Drag or click to reposition")
+      .openPopup();
+
+    customerMarker.on('dragend', function(e) {
+      const pos = customerMarker.getLatLng();
+      updateLocation(pos.lat, pos.lng, false);
+    });
+
+    map.on('click', function(e) {
+      updateLocation(e.latlng.lat, e.latlng.lng, false);
+    });
+
+    workerLayerGroup = L.layerGroup().addTo(map);
+    plotWorkers();
+
+    const selectedCat = document.getElementById('selected-category-input').value || 'electrician';
+    renderSubTasks(selectedCat);
+  }
+
+  function plotWorkers() {
+    if (!workerLayerGroup) return;
+    workerLayerGroup.clearLayers();
+
+    workerPins.forEach(w => {
+      if (w.lat && w.lng) {
+        const workerIcon = L.divIcon({
+          className: 'custom-worker-marker',
+          html: `<div style="background:#0F5132; color:#fff; font-size:11px; font-weight:700; border-radius:12px; padding:3px 8px; border:2px solid #fff; box-shadow:0 3px 8px rgba(0,0,0,0.3); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; cursor:pointer;">🛠️ ${w.name.split(' ')[0]}</div>`,
+          iconSize: [80, 22],
+          iconAnchor: [40, 11]
+        });
+
+        const langs = (w.spoken_languages || 'en,hi').toUpperCase().split(',').join(', ');
+        const m = L.marker([w.lat, w.lng], { icon: workerIcon })
+          .bindPopup(
+            `<div style="font-family:sans-serif; font-size:12.5px; padding:2px;">` +
+            `<strong style="color:#0F5132; font-size:14px;">${w.name}</strong><br>` +
+            `<span style="color:#D97706; font-weight:700;">★ ${w.rating > 0 ? w.rating : 'New'}</span> &middot; ` +
+            `<span style="color:#16A34A; font-weight:600;">Verified Co-op</span><br>` +
+            `<span style="color:#64748B; font-size:11.5px;">Trades: ${w.skills.join(', ')}</span><br>` +
+            `<span style="color:#0F5132; font-size:11px; font-weight:600;">🗣️ Languages: ${langs}</span>` +
+            `</div>`
+          );
+        workerLayerGroup.addLayer(m);
+      }
+    });
+  }
+
+  function updateLocation(lat, lng, pan = true) {
+    const cleanLat = Number(lat).toFixed(4);
+    const cleanLng = Number(lng).toFixed(4);
+
+    document.getElementById('lat-input').value = cleanLat;
+    document.getElementById('lng-input').value = cleanLng;
+
+    customerMarker.setLatLng([cleanLat, cleanLng]);
+    dispatchCircle.setLatLng([cleanLat, cleanLng]);
+
+    if (pan && map) {
+      map.setView([cleanLat, cleanLng], 14);
+    }
+  }
+
+  function setCoordinates(lat, lng, label) {
+    updateLocation(lat, lng, true);
+    document.getElementById('location-status').innerHTML = `📍 Service location set to <b>${label}</b> (${lat}, ${lng}).`;
+  }
+
+  function onManualCoordinateChange() {
+    const lat = parseFloat(document.getElementById('lat-input').value);
+    const lng = parseFloat(document.getElementById('lng-input').value);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      updateLocation(lat, lng, true);
+    }
+  }
+
+  function detectLocation() {
+    const btn = document.getElementById('detect-loc-btn');
+    const statusEl = document.getElementById('location-status');
+
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerText = "⏳ Locating...";
+    statusEl.innerText = "Requesting GPS coordinates from your browser...";
+
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        btn.disabled = false;
+        btn.innerText = "📍 Detect My Location";
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        updateLocation(lat, lng, true);
+        statusEl.innerHTML = `✅ Successfully detected your GPS location: <b>${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}</b>!`;
+      },
+      function(err) {
+        btn.disabled = false;
+        btn.innerText = "📍 Detect My Location";
+        statusEl.innerHTML = `<span style="color:var(--color-danger);">⚠️ Could not detect GPS location (${err.message}). Defaulted to Hyderabad Hub.</span>`;
+        setCoordinates(17.4450, 78.3950, 'Hyderabad Hub (Default)');
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  }
+
+  // --- TAB SWITCHER CONTROLLER ---
+  function switchCustomerTab(tabName, updateHash = true) {
+    const paneBook = document.getElementById('pane-book');
+    const paneBookings = document.getElementById('pane-bookings');
+    const btnBook = document.getElementById('tab-btn-book');
+    const btnBookings = document.getElementById('tab-btn-bookings');
+
+    if (!paneBook || !paneBookings || !btnBook || !btnBookings) return;
+
+    if (tabName === 'bookings') {
+      paneBook.style.display = 'none';
+      paneBookings.style.display = 'block';
+      btnBook.classList.remove('active');
+      btnBook.setAttribute('aria-selected', 'false');
+      btnBookings.classList.add('active');
+      btnBookings.setAttribute('aria-selected', 'true');
+      if (updateHash) {
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, null, '#bookings');
+        } else {
+          window.location.hash = '#bookings';
+        }
+      }
+    } else {
+      paneBookings.style.display = 'none';
+      paneBook.style.display = 'block';
+      btnBookings.classList.remove('active');
+      btnBookings.setAttribute('aria-selected', 'false');
+      btnBook.classList.add('active');
+      btnBook.setAttribute('aria-selected', 'true');
+      if (updateHash) {
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, null, '#book');
+        } else {
+          window.location.hash = '#book';
+        }
+      }
+      if (map) {
+        setTimeout(function() {
+          map.invalidateSize();
+        }, 120);
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    initMap();
+    if (window.location.hash === '#bookings') {
+      switchCustomerTab('bookings', false);
+    } else {
+      switchCustomerTab('book', false);
+    }
+  });
+
+  window.addEventListener('hashchange', function() {
+    if (window.location.hash === '#bookings') {
+      switchCustomerTab('bookings', false);
+    } else if (window.location.hash === '#book') {
+      switchCustomerTab('book', false);
+    }
+  });
+</script>
 {% endblock %}
+

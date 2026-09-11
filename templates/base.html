@@ -3,40 +3,83 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>{% block title %}Sahayog{% endblock %}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+<title>{% block title %}Sahayog &mdash; Cooperative Gig Services Platform{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.1.0" />
+{% block extra_head %}{% endblock %}
 </head>
 <body>
 
 <nav class="topnav">
   <div class="container">
-    <a class="brand" href="{{ url_for('index') }}"><span class="mark">S</span> {{ t('app_name') }}</a>
+    <a class="brand" href="{{ url_for('index') }}">
+      <span class="mark">🤝</span>
+      <span>{{ t('app_name') }}</span>
+      <span class="coop-tag">SIH26089 &middot; NCCT</span>
+    </a>
+
     <div class="nav-user">
       <div class="lang-toggle">
         <a class="{{ 'active' if lang == 'en' }}" href="{{ url_for('set_language', code='en') }}">EN</a>
-        <a class="{{ 'active' if lang == 'hi' }}" href="{{ url_for('set_language', code='hi') }}">हिं</a>
+        <a class="{{ 'active' if lang == 'hi' }}" href="{{ url_for('set_language', code='hi') }}">हिन्दी</a>
       </div>
+
       {% if current_user %}
-        <span class="tag-role">{{ current_user['name'] }}</span>
-        <a href="{{ url_for('logout') }}" style="color:#E9E2CF; font-size:14px;">{{ t('logout') }}</a>
+        <div class="user-pill">
+          <span class="avatar-circle">{{ current_user['name'][0]|upper }}</span>
+          <span>{{ current_user['name'] }}</span>
+          <span style="font-size:11px; opacity:0.8; font-weight:normal;">({{ current_user['role']|capitalize }})</span>
+        </div>
+        <div class="nav-links">
+          {% if current_user['role'] == 'customer' %}
+            <a href="{{ url_for('customer_dashboard') }}" title="Dashboard">📋 Dashboard</a>
+            <a href="{{ url_for('customer_settings') }}" title="Settings">⚙️ {{ t('settings') }}</a>
+          {% elif current_user['role'] == 'worker' %}
+            <a href="{{ url_for('worker_dashboard') }}" title="Dashboard">📋 Dashboard</a>
+            <a href="{{ url_for('worker_verification') }}" title="4-Pillar Verification">🛡️ Verification</a>
+          {% elif current_user['role'] == 'admin' %}
+            <a href="{{ url_for('admin_dashboard') }}" title="Console">📊 Console</a>
+          {% endif %}
+          <a href="{{ url_for('logout') }}" title="Log out">🚪 {{ t('logout') }}</a>
+        </div>
       {% endif %}
     </div>
   </div>
 </nav>
 
-<div class="container" style="padding-top:20px;">
+<div class="container" style="padding-top: 24px;">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       {% for category, message in messages %}
-        <div class="alert alert-{{ 'error' if category == 'error' else category }}">{{ message }}</div>
+        <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+          <span style="font-size: 18px;">
+            {% if category == 'error' %}⚠️{% elif category == 'success' %}✅{% else %}ℹ️{% endif %}
+          </span>
+          <div style="flex:1;">{{ message }}</div>
+        </div>
       {% endfor %}
     {% endif %}
   {% endwith %}
 </div>
 
-{% block content %}{% endblock %}
+<main>
+  {% block content %}{% endblock %}
+</main>
 
-<footer class="site-footer"><div class="container">Sahayog &mdash; a working prototype for SIH26089 (Ministry of Cooperation / NCCT). Not an official government service.</div></footer>
+<footer class="site-footer">
+  <div class="container">
+    <div>
+      <strong>Sahayog (सहयोग) &mdash; Cooperative Gig Services Platform</strong><br>
+      <span style="color: var(--color-muted); font-size: 12px;">
+        Designed for SIH26089 &middot; Ministry of Cooperation &amp; National Council for Cooperative Training (NCCT), Govt. of India.
+      </span>
+    </div>
+    <div style="font-size: 12px; color: var(--color-muted);">
+      87% Worker Payout &middot; 8% Federation Ops &middot; 5% Worker Welfare Wallet
+    </div>
+  </div>
+</footer>
 
 </body>
 </html>

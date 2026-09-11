@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     language TEXT NOT NULL DEFAULT 'en',
+    address TEXT DEFAULT '',
     created_at TEXT NOT NULL
 );
 
@@ -63,6 +64,13 @@ CREATE TABLE IF NOT EXISTS workers (
     lng REAL,
     available INTEGER NOT NULL DEFAULT 1,
     welfare_wallet REAL NOT NULL DEFAULT 0,
+    spoken_languages TEXT NOT NULL DEFAULT 'en,hi',
+    aadhaar_last4 TEXT,
+    cert_type TEXT,
+    cert_id TEXT,
+    peer_reference TEXT,
+    tools_verified INTEGER NOT NULL DEFAULT 0,
+    verification_status TEXT NOT NULL DEFAULT 'unsubmitted',
     created_at TEXT NOT NULL
 );
 
@@ -78,6 +86,9 @@ CREATE TABLE IF NOT EXISTS bookings (
     lng REAL,
     distance_km REAL,
     price REAL,
+    completion_otp TEXT,
+    escrow_status TEXT NOT NULL DEFAULT 'held',
+    language TEXT NOT NULL DEFAULT 'en',
     created_at TEXT NOT NULL,
     completed_at TEXT
 );
@@ -126,6 +137,97 @@ def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = get_connection()
     conn.executescript(SCHEMA)
+
+    # Safe runtime migration for existing databases
+    cursor_b = conn.execute("PRAGMA table_info(bookings)")
+    b_cols = [row["name"] for row in cursor_b.fetchall()]
+    if "completion_otp" not in b_cols:
+        conn.execute("ALTER TABLE bookings ADD COLUMN completion_otp TEXT")
+    if "escrow_status" not in b_cols:
+        conn.execute("ALTER TABLE bookings ADD COLUMN escrow_status TEXT NOT NULL DEFAULT 'unpaid'")
+    if "language" not in b_cols:
+        conn.execute("ALTER TABLE bookings ADD COLUMN language TEXT NOT NULL DEFAULT 'en'")
+
+    cursor_w = conn.execute("PRAGMA table_info(workers)")
+    w_cols = [row["name"] for row in cursor_w.fetchall()]
+    if "spoken_languages" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN spoken_languages TEXT NOT NULL DEFAULT 'en,hi'")
+    if "aadhaar_last4" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN aadhaar_last4 TEXT")
+    if "cert_type" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN cert_type TEXT")
+    if "cert_id" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN cert_id TEXT")
+    if "peer_reference" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN peer_reference TEXT")
+    if "tools_verified" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN tools_verified INTEGER NOT NULL DEFAULT 0")
+    if "verification_status" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN verification_status TEXT NOT NULL DEFAULT 'unsubmitted'")
+    if "aadhaar_name" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN aadhaar_name TEXT")
+    if "aadhaar_dob" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN aadhaar_dob TEXT")
+    if "cert_level" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN cert_level TEXT")
+    if "cert_issue_year" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN cert_issue_year TEXT")
+    if "peer_phone" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN peer_phone TEXT")
+    if "pcc_number" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN pcc_number TEXT")
+    if "toolkit_items" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN toolkit_items TEXT")
+    if "officer_remarks" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN officer_remarks TEXT")
+    if "coop_id" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN coop_id TEXT")
+    if "verified_at" not in w_cols:
+        conn.execute("ALTER TABLE workers ADD COLUMN verified_at TEXT")
+
+    cursor_u = conn.execute("PRAGMA table_info(users)")
+    u_cols = [row["name"] for row in cursor_u.fetchall()]
+    if "address" not in u_cols:
+        conn.execute("ALTER TABLE users ADD COLUMN address TEXT DEFAULT ''")
+
+    # Backfill default accreditation info for existing workers
+    conn.execute(
+        """UPDATE workers
+           SET aadhaar_last4 = '8492',
+               aadhaar_name = 'Ramesh Kumar',
+               aadhaar_dob = '1988-04-12',
+               cert_type = 'NCCT Master Craftsman',
+               cert_id = 'NCCT-HYD-2025-091',
+               cert_level = 'NSQF Level 5 (Master Craftsman)',
+               cert_issue_year = '2023',
+               peer_reference = 'Hyderabad Labour Union #104',
+               peer_phone = '9848011223',
+               pcc_number = 'CCTNS-TS-2025-88129',
+               toolkit_items = 'Insulated Screwdrivers (1000V), Fluke Digital Multimeter, Heavy-Duty Wire Stripper, Safety Helmet & High-Tension Gloves, Tool Bag',
+               officer_remarks = 'Passed in-person federation trade audit at Hyderabad Central Guild on 15-Jan-2025. Tools and safety gear verified.',
+               coop_id = 'SHY-COOP-HYD-0104',
+               verified_at = '2025-01-15T11:30:00',
+               tools_verified = 1, verification_status = 'verified'
+           WHERE verified = 1 AND (coop_id IS NULL OR coop_id = '')"""
+    )
+    conn.execute(
+        """UPDATE workers
+           SET aadhaar_last4 = '4819',
+               aadhaar_name = 'Mahesh Yadav',
+               aadhaar_dob = '1993-08-22',
+               cert_type = 'Skill India Digital (SID)',
+               cert_id = 'SID-2026-TS-8910',
+               cert_level = 'NSQF Level 4 (Certified Electrician)',
+               cert_issue_year = '2024',
+               peer_reference = 'Mukhiya Anand Rao (Fed #102)',
+               peer_phone = '9876501234',
+               pcc_number = 'CCTNS-TS-2026-44019',
+               toolkit_items = 'Heavy Duty Drill, Pipe Wrench Set, Digital Multimeter, Insulated Cutters, Safety Goggles & Gloves',
+               coop_id = 'SHY-COOP-HYD-04819',
+               tools_verified = 1, verification_status = 'submitted'
+           WHERE verified = 0 AND (coop_id IS NULL OR coop_id = '')"""
+    )
+
     conn.commit()
     conn.close()
 

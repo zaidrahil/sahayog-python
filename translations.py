@@ -42,6 +42,7 @@ TRANSLATIONS = {
         "no_bookings": "No bookings yet.",
         "no_pending_workers": "All workers are verified.",
         "logout": "Log out",
+        "settings": "Settings",
     },
     "hi": {
         "app_name": "सहयोग",
@@ -69,13 +70,14 @@ TRANSLATIONS = {
         "worker_available": "नए काम के लिए उपलब्ध",
         "worker_welfare_wallet": "कल्याण वॉलेट शेष",
         "worker_rating": "आपकी रेटिंग",
-        "admin_dashboard": "संघ डैशबोर्ड",
-        "admin_pending_workers": "सत्यापन की प्रतीक्षा में कामगार",
-        "admin_forecast": "मांग पूर्वानुमान",
+        "admin_dashboard": "फेडरेशन डैशबोर्ड",
+        "admin_pending_workers": "सत्यापन की प्रतीक्षा कर रहे कामगार",
+        "admin_forecast": "मांग का पूर्वानुमान",
         "verify_action": "कामगार सत्यापित करें",
         "no_bookings": "अभी तक कोई बुकिंग नहीं।",
         "no_pending_workers": "सभी कामगार सत्यापित हैं।",
         "logout": "लॉग आउट",
+        "settings": "सेटिंग्स",
     },
 }
 
