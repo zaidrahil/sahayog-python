@@ -785,6 +785,8 @@ input:focus, select:focus, textarea:focus {
   color: #334155;
   padding: 2px 8px;
   border-radius: 100px;
+}
+
 /* --- 4-PILLAR WORKER VERIFICATION WIZARD --- */
 .verification-card {
   background: #FFFFFF;
@@ -1284,6 +1286,7 @@ input:focus, select:focus, textarea:focus {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
   user-select: none;
+  position: relative;
 }
 
 .admin-tab-btn:hover {
@@ -1300,6 +1303,17 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 4px 14px rgba(30, 58, 138, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+.admin-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -9px;
+  left: 25%;
+  right: 25%;
+  height: 3px;
+  background: linear-gradient(90deg, #2563EB, #1E3A8A);
+  border-radius: 4px 4px 0 0;
+}
+
 .admin-tab-icon {
   font-size: 24px;
   line-height: 1;
@@ -1313,10 +1327,20 @@ input:focus, select:focus, textarea:focus {
   justify-content: center;
 }
 
+.admin-tab-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
 .admin-tab-title {
   font-weight: 700;
   font-size: 15px;
   line-height: 1.25;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .admin-tab-desc {
@@ -1411,4 +1435,20 @@ input:focus, select:focus, textarea:focus {
   background: #F8FAFC;
 }
 
+.kpi-card {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated);
+}
+
+@media (max-width: 960px) {
+  .admin-tabs-nav {
+    grid-template-columns: 1fr;
+  }
+  .admin-tab-btn.active::after {
+    display: none;
+  }
+}

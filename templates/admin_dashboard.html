@@ -38,7 +38,7 @@
   <div class="admin-tabs-nav" role="tablist">
     <button type="button" class="admin-tab-btn active" id="tab-btn-telemetry" onclick="switchAdminTab('telemetry')" role="tab">
       <div class="admin-tab-icon">🏛️</div>
-      <div>
+      <div class="admin-tab-text">
         <div class="admin-tab-title">Operations &amp; Fleet Map</div>
         <div class="admin-tab-desc">Live regional clusters, fleet map &amp; demand</div>
       </div>
@@ -46,20 +46,20 @@
 
     <button type="button" class="admin-tab-btn" id="tab-btn-verification" onclick="switchAdminTab('verification')" role="tab">
       <div class="admin-tab-icon">🛡️</div>
-      <div style="display:flex; align-items:center; gap:8px; width:100%;">
-        <div>
-          <div class="admin-tab-title">Worker Verification Desk</div>
-          <div class="admin-tab-desc">4-Pillar audits, accreditation &amp; roster</div>
+      <div class="admin-tab-text">
+        <div class="admin-tab-title">
+          <span>Worker Verification Desk</span>
+          {% if pending_workers|length > 0 %}
+            <span class="admin-tab-badge badge-alert">{{ pending_workers|length }}</span>
+          {% endif %}
         </div>
-        {% if pending_workers|length > 0 %}
-          <span class="admin-tab-badge badge-alert">{{ pending_workers|length }}</span>
-        {% endif %}
+        <div class="admin-tab-desc">4-Pillar audits, accreditation &amp; roster</div>
       </div>
     </button>
 
     <button type="button" class="admin-tab-btn" id="tab-btn-welfare" onclick="switchAdminTab('welfare')" role="tab">
       <div class="admin-tab-icon">💰</div>
-      <div>
+      <div class="admin-tab-text">
         <div class="admin-tab-title">Welfare &amp; Financial Ledger</div>
         <div class="admin-tab-desc">5% Social security &amp; 87/5/8 settlements</div>
       </div>
@@ -71,36 +71,48 @@
 
     <!-- 4 CORE ESSENTIAL KPIS -->
     <div class="grid grid-4" style="margin-bottom: 24px;">
-      <div class="card" style="padding: 18px 20px;">
-        <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase;">Co-op Workforce</div>
-        <div style="font-size: 26px; font-weight: 800; color: var(--color-primary-dark); margin-top: 4px;">
-          {{ stats.verified_workers }} <span style="font-size:15px; font-weight:normal; color:var(--color-muted);">/ {{ stats.total_workers }}</span>
+      <div class="card kpi-card" style="padding: 18px 20px; border-left: 4px solid #2563EB;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em;">Co-op Workforce</div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #EFF6FF; display: flex; align-items: center; justify-content: center; font-size: 16px;">👥</div>
         </div>
-        <div style="font-size: 11.5px; color: #16A34A; margin-top: 3px;">✓ Verified &middot; Ready for dispatch</div>
+        <div style="font-size: 26px; font-weight: 800; color: var(--color-primary-dark); margin: 6px 0 2px 0;">
+          {{ stats.verified_workers }} <span style="font-size: 15px; font-weight: 500; color: var(--color-muted);">/ {{ stats.total_workers }}</span>
+        </div>
+        <div style="font-size: 11.5px; color: #16A34A; font-weight: 600;">✓ Verified &middot; Ready for dispatch</div>
       </div>
 
-      <div class="card" style="padding: 18px 20px;">
-        <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase;">Job Deliveries</div>
-        <div style="font-size: 26px; font-weight: 800; color: var(--color-primary-dark); margin-top: 4px;">
-          {{ stats.completed_bookings }} <span style="font-size:15px; font-weight:normal; color:var(--color-muted);">/ {{ stats.total_bookings }}</span>
+      <div class="card kpi-card" style="padding: 18px 20px; border-left: 4px solid #059669;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em;">Job Deliveries</div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #ECFDF5; display: flex; align-items: center; justify-content: center; font-size: 16px;">📦</div>
         </div>
-        <div style="font-size: 11.5px; color: #16A34A; margin-top: 3px;">{{ stats.completion_rate }}% Fulfillment SLA</div>
+        <div style="font-size: 26px; font-weight: 800; color: var(--color-primary-dark); margin: 6px 0 2px 0;">
+          {{ stats.completed_bookings }} <span style="font-size: 15px; font-weight: 500; color: var(--color-muted);">/ {{ stats.total_bookings }}</span>
+        </div>
+        <div style="font-size: 11.5px; color: #059669; font-weight: 600;">⚡ {{ stats.completion_rate }}% Fulfillment SLA</div>
       </div>
 
-      <div class="card" style="padding: 18px 20px;">
-        <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase;">Federation Revenue (8%)</div>
-        <div style="font-size: 26px; font-weight: 800; color: var(--color-primary); margin-top: 4px;">
+      <div class="card kpi-card" style="padding: 18px 20px; border-left: 4px solid #D97706;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em;">Federation Revenue (8%)</div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #FFFBEB; display: flex; align-items: center; justify-content: center; font-size: 16px;">🏛️</div>
+        </div>
+        <div style="font-size: 26px; font-weight: 800; color: #B45309; margin: 6px 0 2px 0;">
           &#8377;{{ stats.total_commission }}
         </div>
-        <div style="font-size: 11.5px; color: var(--color-muted); margin-top: 3px;">Cooperative Administration Fund</div>
+        <div style="font-size: 11.5px; color: var(--color-muted);">Cooperative Administration Fund</div>
       </div>
 
-      <div class="card" style="padding: 18px 20px;">
-        <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase;">Worker Welfare Pool (5%)</div>
-        <div style="font-size: 26px; font-weight: 800; color: #15803D; margin-top: 4px;">
+      <div class="card kpi-card" style="padding: 18px 20px; border-left: 4px solid #10B981;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em;">Worker Welfare Pool (5%)</div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #F0FDF4; display: flex; align-items: center; justify-content: center; font-size: 16px;">🛡️</div>
+        </div>
+        <div style="font-size: 26px; font-weight: 800; color: #047857; margin: 6px 0 2px 0;">
           &#8377;{{ stats.net_welfare }}
         </div>
-        <div style="font-size: 11.5px; color: #16A34A; margin-top: 3px;">Net Available for Relief &amp; Grants</div>
+        <div style="font-size: 11.5px; color: #16A34A; font-weight: 600;">Net Available for Relief &amp; Grants</div>
       </div>
     </div>
 
@@ -190,23 +202,33 @@
   <!-- TAB 2: 4-PILLAR ACCREDITATION & MASTER ROSTER -->
   <div id="pane-verification" class="admin-tab-pane" style="display: none;">
     
-    <!-- PENDING AUDIT DESK -->
-    <div class="card" style="margin-bottom: 24px;">
-      <div class="card-header-row">
-        <div>
-          <h3>🛡️ 4-Pillar Verification Desk &amp; Audit Queue</h3>
-          <span class="help-text" style="margin:0;">Mandatory cooperative accreditation audit: Aadhaar e-KYC, Craft Certification, CCTNS &amp; Peer Reference, and Physical Tool-kit inspection.</span>
+    {% if pending_workers|length == 0 %}
+      <!-- AUDIT DESK: ALL WORKERS CLEARED BANNER -->
+      <div style="display: flex; align-items: center; justify-content: space-between; background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: var(--radius-lg); padding: 14px 20px; margin-bottom: 22px; box-shadow: var(--shadow-xs);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: #DCFCE7; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">✅</div>
+          <div>
+            <div style="font-weight: 700; font-size: 14.5px; color: #14532D;">4-Pillar Verification Audit Queue Cleared</div>
+            <div style="font-size: 12px; color: #15803D; margin-top: 1px;">
+              All registered cooperative workers have completed 4-pillar cooperative audits and have active accreditation passports.
+            </div>
+          </div>
         </div>
-        <span class="badge badge-pending">{{ pending_workers|length }} Awaiting Certification</span>
+        <span class="badge badge-verified" style="background: #FFFFFF; color: #166534; border: 1px solid #86EFAC; font-weight: 700; font-size: 12px; padding: 5px 12px; white-space: nowrap;">
+          0 Pending Audits
+        </span>
       </div>
-
-      {% if pending_workers|length == 0 %}
-        <div class="empty-state" style="padding: 32px; text-align: center;">
-          <div style="font-size: 38px; margin-bottom: 8px;">✅</div>
-          <h4 style="margin:0 0 4px 0;">All worker applications processed</h4>
-          <p style="font-size: 13.5px; color: var(--color-muted); margin: 0;">There are no unverified workers in the cooperative queue right now.</p>
+    {% else %}
+      <!-- PENDING AUDIT DESK -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header-row">
+          <div>
+            <h3>🛡️ 4-Pillar Verification Desk &amp; Audit Queue</h3>
+            <span class="help-text" style="margin:0;">Mandatory cooperative accreditation audit: Aadhaar e-KYC, Craft Certification, CCTNS &amp; Peer Reference, and Physical Tool-kit inspection.</span>
+          </div>
+          <span class="badge badge-pending">{{ pending_workers|length }} Awaiting Certification</span>
         </div>
-      {% else %}
+
         {% for w in pending_workers %}
           <div style="padding: 18px; border-bottom: 1px solid var(--color-border); background: var(--color-surface); border-radius: 8px; margin-bottom: 14px; border: 1px solid var(--color-border);">
             <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px;">
@@ -269,11 +291,11 @@
             </div>
           </div>
         {% endfor %}
-      {% endif %}
-    </div>
+      </div>
+    {% endif %}
 
     <!-- MASTER WORKER ROSTER (WITH NCCT RETRAINING ACTIONS) -->
-    <div class="card">
+    <div class="card" style="padding: 24px;">
       <div class="card-header-row">
         <div>
           <h3>👥 Master Cooperative Worker Roster</h3>
@@ -282,69 +304,71 @@
         <span class="badge badge-verified">{{ all_workers|length }} Total Registered</span>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Worker Name</th>
-            <th>Registered Trades</th>
-            <th>Accreditation Passport</th>
-            <th>Rating Benchmark</th>
-            <th>Welfare Wallet</th>
-            <th>NCCT Quality / Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for w in all_workers %}
+      <div style="overflow-x: auto;">
+        <table class="ledger-table">
+          <thead>
             <tr>
-              <td>
-                <strong>{{ w['name'] }}</strong>
-                {% if w['coop_id'] %}
-                  <div style="font-size: 11px; font-family: monospace; color: var(--color-muted);">{{ w['coop_id'] }}</div>
-                {% endif %}
-              </td>
-              <td>{{ w['skills'].replace(',', ', ')|title }}</td>
-              <td>
-                {% if w['verified'] %}
-                  <span class="badge badge-verified">✓ 4-Pillar Certified</span>
-                  <span style="font-size:11px; color:#047857; display:block; margin-top:2px; font-weight:600;">Passport Active (+25% Boost)</span>
-                {% elif w['verification_status'] == 'submitted' %}
-                  <span class="badge badge-pending">Desk Review Active</span>
-                {% else %}
-                  <span class="badge badge-unverified">Awaiting Submission</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if w['rating_count'] %}
-                  <span style="color:#D97706; font-weight:700;">★ {{ w['rating'] }}</span> <span style="font-size:11px; color:var(--color-muted);">({{ w['rating_count'] }})</span>
-                {% else %}
-                  <span style="color:var(--color-muted);">-</span>
-                {% endif %}
-              </td>
-              <td><strong style="color:#15803D;">&#8377;{{ w['welfare_wallet'] }}</strong></td>
-              <td>
-                {% if w['retraining_status'] == 'assigned' %}
-                  <form method="POST" action="{{ url_for('admin_worker_clear_retrain', worker_id=w['id']) }}" style="display:inline;">
-                    <button type="submit" class="btn btn-sm btn-primary" style="font-size: 11px; padding: 3px 8px;">
-                      ✓ Recertify
-                    </button>
-                  </form>
-                {% elif w['rating_count'] and w['rating'] < 4.0 %}
-                  <form method="POST" action="{{ url_for('admin_worker_retrain', worker_id=w['id']) }}" style="display:inline;">
-                    <input type="hidden" name="module" value="NCCT Refresher Module" />
-                    <button type="submit" class="btn btn-sm btn-secondary" style="font-size: 11px; padding: 3px 8px;">
-                      🎓 Assign NCCT
-                    </button>
-                  </form>
-                {% else %}
-                  <a href="{{ url_for('admin_worker_dossier', worker_id=w['id']) }}" class="btn btn-sm btn-ghost" style="padding: 3px 8px; font-size: 11px;">
-                    Inspect &rarr;
-                  </a>
-                {% endif %}
-              </td>
+              <th>Worker Name</th>
+              <th>Registered Trades</th>
+              <th>Accreditation Passport</th>
+              <th>Rating Benchmark</th>
+              <th>Welfare Wallet</th>
+              <th>NCCT Quality / Action</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for w in all_workers %}
+              <tr>
+                <td>
+                  <strong>{{ w['name'] }}</strong>
+                  {% if w['coop_id'] %}
+                    <div style="font-size: 11px; font-family: monospace; color: var(--color-muted);">{{ w['coop_id'] }}</div>
+                  {% endif %}
+                </td>
+                <td>{{ w['skills'].replace(',', ', ')|title }}</td>
+                <td>
+                  {% if w['verified'] %}
+                    <span class="badge badge-verified">✓ 4-Pillar Certified</span>
+                    <span style="font-size:11px; color:#047857; display:block; margin-top:2px; font-weight:600;">Passport Active (+25% Boost)</span>
+                  {% elif w['verification_status'] == 'submitted' %}
+                    <span class="badge badge-pending">Desk Review Active</span>
+                  {% else %}
+                    <span class="badge badge-unverified">Awaiting Submission</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if w['rating_count'] %}
+                    <span style="color:#D97706; font-weight:700;">★ {{ w['rating'] }}</span> <span style="font-size:11px; color:var(--color-muted);">({{ w['rating_count'] }})</span>
+                  {% else %}
+                    <span style="color:var(--color-muted);">-</span>
+                  {% endif %}
+                </td>
+                <td><strong style="color:#15803D;">&#8377;{{ w['welfare_wallet'] }}</strong></td>
+                <td>
+                  {% if w['retraining_status'] == 'assigned' %}
+                    <form method="POST" action="{{ url_for('admin_worker_clear_retrain', worker_id=w['id']) }}" style="display:inline;">
+                      <button type="submit" class="btn btn-sm btn-primary" style="font-size: 11px; padding: 3px 8px;">
+                        ✓ Recertify
+                      </button>
+                    </form>
+                  {% elif w['rating_count'] and w['rating'] < 4.0 %}
+                    <form method="POST" action="{{ url_for('admin_worker_retrain', worker_id=w['id']) }}" style="display:inline;">
+                      <input type="hidden" name="module" value="NCCT Refresher Module" />
+                      <button type="submit" class="btn btn-sm btn-secondary" style="font-size: 11px; padding: 3px 8px;">
+                        🎓 Assign NCCT
+                      </button>
+                    </form>
+                  {% else %}
+                    <a href="{{ url_for('admin_worker_dossier', worker_id=w['id']) }}" class="btn btn-sm btn-ghost" style="padding: 3px 8px; font-size: 11px;">
+                      Inspect &rarr;
+                    </a>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
 
   </div>
@@ -354,22 +378,31 @@
 
     <!-- WELFARE METRICS -->
     <div class="grid grid-3" style="margin-bottom: 24px;">
-      <div class="card" style="padding: 18px;">
-        <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase;">Total Welfare Accrued (5%)</div>
-        <div style="font-size: 26px; font-weight: 800; color: #15803D; margin-top: 4px;">&#8377;{{ stats.total_welfare }}</div>
-        <div style="font-size: 11.5px; color: var(--color-muted); margin-top: 2px;">Cumulative from all completed jobs</div>
+      <div class="card kpi-card" style="padding: 20px; border-left: 4px solid #15803D;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em;">Total Welfare Accrued (5%)</div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #F0FDF4; display: flex; align-items: center; justify-content: center; font-size: 16px;">🛡️</div>
+        </div>
+        <div style="font-size: 26px; font-weight: 800; color: #15803D; margin: 6px 0 2px 0;">&#8377;{{ stats.total_welfare }}</div>
+        <div style="font-size: 11.5px; color: var(--color-muted);">Cumulative from all completed jobs</div>
       </div>
 
-      <div class="card" style="padding: 18px;">
-        <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase;">Grants Disbursed</div>
-        <div style="font-size: 26px; font-weight: 800; color: #2563EB; margin-top: 4px;">&#8377;{{ stats.total_disbursed }}</div>
-        <div style="font-size: 11.5px; color: var(--color-muted); margin-top: 2px;">Healthcare &amp; tool micro-subsidies</div>
+      <div class="card kpi-card" style="padding: 20px; border-left: 4px solid #2563EB;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em;">Grants Disbursed</div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #EFF6FF; display: flex; align-items: center; justify-content: center; font-size: 16px;">🎁</div>
+        </div>
+        <div style="font-size: 26px; font-weight: 800; color: #2563EB; margin: 6px 0 2px 0;">&#8377;{{ stats.total_disbursed }}</div>
+        <div style="font-size: 11.5px; color: var(--color-muted);">Healthcare &amp; tool micro-subsidies</div>
       </div>
 
-      <div class="card" style="padding: 18px;">
-        <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase;">Net Available Welfare Pool</div>
-        <div style="font-size: 26px; font-weight: 800; color: #047857; margin-top: 4px;">&#8377;{{ stats.net_welfare }}</div>
-        <div style="font-size: 11.5px; color: #16A34A; margin-top: 2px;">Ready for immediate social relief</div>
+      <div class="card kpi-card" style="padding: 20px; border-left: 4px solid #047857;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em;">Net Available Welfare Pool</div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #ECFDF5; display: flex; align-items: center; justify-content: center; font-size: 16px;">💰</div>
+        </div>
+        <div style="font-size: 26px; font-weight: 800; color: #047857; margin: 6px 0 2px 0;">&#8377;{{ stats.net_welfare }}</div>
+        <div style="font-size: 11.5px; color: #16A34A; font-weight: 600;">Ready for immediate social relief</div>
       </div>
     </div>
 
