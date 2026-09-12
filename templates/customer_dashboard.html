@@ -273,34 +273,12 @@
                 Strict cooperative matching: Only verified workers fluent in your chosen language are dispatched.
               </p>
               <div class="lang-selector-grid">
-                <label class="lang-chip-label">
-                  <input type="radio" name="preferred_lang" value="en" checked />
-                  <span class="lang-chip">🇬🇧 English</span>
-                </label>
-                <label class="lang-chip-label">
-                  <input type="radio" name="preferred_lang" value="hi" />
-                  <span class="lang-chip">🇮🇳 हिन्दी (Hindi)</span>
-                </label>
-                <label class="lang-chip-label">
-                  <input type="radio" name="preferred_lang" value="te" />
-                  <span class="lang-chip">🇮🇳 తెలుగు (Telugu)</span>
-                </label>
-                <label class="lang-chip-label">
-                  <input type="radio" name="preferred_lang" value="mr" />
-                  <span class="lang-chip">🇮🇳 मराठी (Marathi)</span>
-                </label>
-                <label class="lang-chip-label">
-                  <input type="radio" name="preferred_lang" value="bn" />
-                  <span class="lang-chip">🇮🇳 বাংলা (Bengali)</span>
-                </label>
-                <label class="lang-chip-label">
-                  <input type="radio" name="preferred_lang" value="ta" />
-                  <span class="lang-chip">🇮🇳 தமிழ் (Tamil)</span>
-                </label>
-                <label class="lang-chip-label">
-                  <input type="radio" name="preferred_lang" value="kn" />
-                  <span class="lang-chip">🇮🇳 ಕನ್ನಡ (Kannada)</span>
-                </label>
+                {% for code, native, english, flag in supported_languages %}
+                  <label class="lang-chip-label">
+                    <input type="radio" name="preferred_lang" value="{{ code }}" {% if (current_user and current_user['language'] == code) or (not current_user and code == 'en') %}checked{% endif %} />
+                    <span class="lang-chip">{{ flag }} {{ native }} ({{ english }})</span>
+                  </label>
+                {% endfor %}
               </div>
             </div>
           </div>

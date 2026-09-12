@@ -23,7 +23,14 @@ import database
 from database import get_connection, init_db, SERVICE_CATEGORIES, category_label
 from utils.geo import find_best_worker, distance_km
 from utils.forecast import forecast_demand
-from translations import translate
+from translations import (
+    translate,
+    translate_category,
+    SUPPORTED_LANGUAGES,
+    SUPPORTED_LANGUAGE_CODES,
+    get_language_info,
+    LANGUAGE_NAME_MAP,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "sahayog-dev-secret-change-in-production")
@@ -87,11 +94,19 @@ def inject_globals():
     """Makes these available inside every Jinja2 template automatically,
     without passing them into every single render_template() call."""
     lang = session.get("lang", "en")
+    if lang not in SUPPORTED_LANGUAGE_CODES:
+        lang = "en"
     return {
         "current_user": current_user(),
         "lang": lang,
-        "categories": SERVICE_CATEGORIES,
+        "current_lang_info": get_language_info(lang),
+        "supported_languages": SUPPORTED_LANGUAGES,
+        "categories": [(cid, translate_category(cid, lang)) for cid, _ in SERVICE_CATEGORIES],
+        "raw_categories": SERVICE_CATEGORIES,
         "t": lambda key: translate(key, lang),
+        "tc": lambda cid: translate_category(cid, lang),
+        "category_label": lambda cid: translate_category(cid, lang),
+        "lang_names": LANGUAGE_NAME_MAP,
     }
 
 
@@ -99,8 +114,14 @@ def inject_globals():
 def set_language(code):
     """Simple language switch - stores the choice in the session and
     returns to whatever page the person was on."""
-    if code in ("en", "hi"):
+    if code in SUPPORTED_LANGUAGE_CODES:
         session["lang"] = code
+        user = current_user()
+        if user:
+            conn = get_connection()
+            conn.execute("UPDATE users SET language = ? WHERE id = ?", (code, user["id"]))
+            conn.commit()
+            conn.close()
     return redirect(request.referrer or url_for("index"))
 
 
@@ -496,13 +517,8 @@ def customer_settings():
     conn.close()
 
     available_languages = [
-        ("en", "🇬🇧 English"),
-        ("hi", "🇮🇳 हिन्दी (Hindi)"),
-        ("te", "🇮🇳 తెలుగు (Telugu)"),
-        ("mr", "🇮🇳 मराठी (Marathi)"),
-        ("bn", "🇮🇳 বাংলা (Bengali)"),
-        ("ta", "🇮🇳 தமிழ் (Tamil)"),
-        ("kn", "🇮🇳 ಕನ್ನಡ (Kannada)"),
+        (code, f"{flag} {native} ({english})")
+        for code, native, english, flag in SUPPORTED_LANGUAGES
     ]
 
     return render_template(

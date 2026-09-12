@@ -395,8 +395,15 @@ def init_db():
     conn.close()
 
 
-def category_label(category_id):
+def category_label(category_id, lang=None):
+    if lang:
+        try:
+            from translations import translate_category
+            return translate_category(category_id, lang)
+        except Exception:
+            pass
     for cid, label in SERVICE_CATEGORIES:
         if cid == category_id:
             return label
     return category_id
+

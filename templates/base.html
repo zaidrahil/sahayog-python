@@ -19,9 +19,22 @@
     </a>
 
     <div class="nav-user">
-      <div class="lang-toggle">
-        <a class="{{ 'active' if lang == 'en' }}" href="{{ url_for('set_language', code='en') }}">EN</a>
-        <a class="{{ 'active' if lang == 'hi' }}" href="{{ url_for('set_language', code='hi') }}">हिन्दी</a>
+      <div class="lang-dropdown">
+        <button class="lang-dropdown-btn" type="button" aria-label="Select Language">
+          <span>🌐 {{ current_lang_info.flag }} {{ current_lang_info.native_name }}</span>
+          <span style="font-size: 9px; opacity: 0.8; margin-left: 2px;">▼</span>
+        </button>
+        <div class="lang-dropdown-menu">
+          {% for code, native, english, flag in supported_languages %}
+            <a class="lang-dropdown-item {{ 'active' if lang == code }}" href="{{ url_for('set_language', code=code) }}">
+              <span class="lang-native">
+                <span>{{ flag }}</span>
+                <span>{{ native }}</span>
+              </span>
+              <span class="lang-en-sub">{{ english }}</span>
+            </a>
+          {% endfor %}
+        </div>
       </div>
 
       {% if current_user %}
@@ -32,15 +45,15 @@
         </div>
         <div class="nav-links">
           {% if current_user['role'] == 'customer' %}
-            <a href="{{ url_for('customer_dashboard') }}" title="Dashboard">📋 Dashboard</a>
-            <a href="{{ url_for('customer_settings') }}" title="Settings">⚙️ {{ t('settings') }}</a>
+            <a href="{{ url_for('customer_dashboard') }}" title="{{ t('nav_dashboard') }}">📋 {{ t('nav_dashboard') }}</a>
+            <a href="{{ url_for('customer_settings') }}" title="{{ t('settings') }}">⚙️ {{ t('settings') }}</a>
           {% elif current_user['role'] == 'worker' %}
-            <a href="{{ url_for('worker_dashboard') }}" title="Dashboard">📋 Dashboard</a>
-            <a href="{{ url_for('worker_verification') }}" title="4-Pillar Verification">🛡️ Verification</a>
+            <a href="{{ url_for('worker_dashboard') }}" title="{{ t('nav_dashboard') }}">📋 {{ t('nav_dashboard') }}</a>
+            <a href="{{ url_for('worker_verification') }}" title="{{ t('nav_verification') }}">🛡️ {{ t('nav_verification') }}</a>
           {% elif current_user['role'] == 'admin' %}
-            <a href="{{ url_for('admin_dashboard') }}" title="Console">📊 Console</a>
+            <a href="{{ url_for('admin_dashboard') }}" title="{{ t('nav_console') }}">📊 {{ t('nav_console') }}</a>
           {% endif %}
-          <a href="{{ url_for('logout') }}" title="Log out">🚪 {{ t('logout') }}</a>
+          <a href="{{ url_for('logout') }}" title="{{ t('logout') }}">🚪 {{ t('logout') }}</a>
         </div>
       {% endif %}
     </div>
