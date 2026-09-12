@@ -110,6 +110,22 @@ def inject_globals():
     }
 
 
+@app.before_request
+def check_language_query_param():
+    lang_param = request.args.get("lang")
+    if lang_param and lang_param in SUPPORTED_LANGUAGE_CODES:
+        session["lang"] = lang_param
+        user = current_user()
+        if user:
+            try:
+                conn = get_connection()
+                conn.execute("UPDATE users SET language = ? WHERE id = ?", (lang_param, user["id"]))
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
+
+
 @app.route("/lang/<code>")
 def set_language(code):
     """Simple language switch - stores the choice in the session and
@@ -118,11 +134,18 @@ def set_language(code):
         session["lang"] = code
         user = current_user()
         if user:
-            conn = get_connection()
-            conn.execute("UPDATE users SET language = ? WHERE id = ?", (code, user["id"]))
-            conn.commit()
-            conn.close()
-    return redirect(request.referrer or url_for("index"))
+            try:
+                conn = get_connection()
+                conn.execute("UPDATE users SET language = ? WHERE id = ?", (code, user["id"]))
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
+    ref = request.referrer
+    if ref:
+        base_ref = ref.split("?")[0]
+        return redirect(f"{base_ref}?lang={code}")
+    return redirect(url_for("index", lang=code))
 
 
 # ---------------------------------------------------------------------------
