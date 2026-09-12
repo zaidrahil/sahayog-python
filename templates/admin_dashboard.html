@@ -58,10 +58,15 @@
     </button>
 
     <button type="button" class="admin-tab-btn" id="tab-btn-welfare" onclick="switchAdminTab('welfare')" role="tab">
-      <div class="admin-tab-icon">💰</div>
+      <div class="admin-tab-icon">🔒</div>
       <div class="admin-tab-text">
-        <div class="admin-tab-title">Welfare &amp; Financial Ledger</div>
-        <div class="admin-tab-desc">5% Social security &amp; 87/5/8 settlements</div>
+        <div class="admin-tab-title">
+          <span>Escrow, Welfare &amp; Ledger</span>
+          {% if disputed_escrows|length > 0 %}
+            <span class="admin-tab-badge badge-alert">{{ disputed_escrows|length }} Disputed</span>
+          {% endif %}
+        </div>
+        <div class="admin-tab-desc">Nodal Escrow Vault, conciliation &amp; 87/5/8 splits</div>
       </div>
     </button>
   </div>
@@ -376,6 +381,104 @@
   <!-- TAB 3: WELFARE TREASURY & FINANCIAL SETTLEMENT LEDGER -->
   <div id="pane-welfare" class="admin-tab-pane" style="display: none;">
 
+    <!-- COOPERATIVE NODAL ESCROW VAULT TELEMETRY -->
+    <div class="grid grid-3" style="margin-bottom: 20px;">
+      <div class="card kpi-card" style="padding: 20px; border-left: 4px solid #D97706;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em;">Nodal Escrow Vault (Held)</div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #FEF3C7; display: flex; align-items: center; justify-content: center; font-size: 16px;">🔒</div>
+        </div>
+        <div style="font-size: 26px; font-weight: 800; color: #B45309; margin: 6px 0 2px 0;">&#8377;{{ stats.total_escrow_held }}</div>
+        <div style="font-size: 11.5px; color: #B45309; font-weight: 600;">Active Jobs in Transit &middot; RBI Compliant</div>
+      </div>
+
+      <div class="card kpi-card" style="padding: 20px; border-left: 4px solid #16A34A;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em;">Total Escrow Released</div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #ECFDF5; display: flex; align-items: center; justify-content: center; font-size: 16px;">✅</div>
+        </div>
+        <div style="font-size: 26px; font-weight: 800; color: #15803D; margin: 6px 0 2px 0;">&#8377;{{ stats.total_escrow_released }}</div>
+        <div style="font-size: 11.5px; color: #16A34A; font-weight: 600;">Disbursed via 4-Digit OTP Milestone Release</div>
+      </div>
+
+      <div class="card kpi-card" style="padding: 20px; border-left: 4px solid #DC2626;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em;">Disputed Escrow Vault</div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #FEE2E2; display: flex; align-items: center; justify-content: center; font-size: 16px;">⚖️</div>
+        </div>
+        <div style="font-size: 26px; font-weight: 800; color: #DC2626; margin: 6px 0 2px 0;">&#8377;{{ stats.total_escrow_disputed }}</div>
+        <div style="font-size: 11.5px; color: #DC2626; font-weight: 600;">Frozen for Federation Officer Conciliation</div>
+      </div>
+    </div>
+
+    <!-- ESCROW DISPUTE CONCILIATION & ARBITRATION DESK -->
+    <div class="card" style="margin-bottom: 24px; border: 1.5px solid {% if disputed_escrows|length > 0 %}#FCA5A5{% else %}var(--color-border){% endif %};">
+      <div class="card-header-row">
+        <div>
+          <h3 style="font-size: 17px; margin: 0 0 4px 0; color: var(--color-primary-dark); display:flex; align-items:center; gap:8px;">
+            <span>⚖️</span> Federation Escrow Dispute Conciliation Desk
+          </h3>
+          <span class="help-text" style="margin:0;">
+            Arbitrate contested milestones where customer withheld completion OTP or workmanship was challenged.
+          </span>
+        </div>
+        {% if disputed_escrows|length > 0 %}
+          <span class="badge" style="background:#FEE2E2; color:#991B1B; border:1px solid #FCA5A5; font-weight:700;">
+            ⚠️ {{ disputed_escrows|length }} Active Disputes
+          </span>
+        {% else %}
+          <span class="badge badge-completed">✓ All Escrows Cleared &amp; Calm</span>
+        {% endif %}
+      </div>
+
+      {% if disputed_escrows|length == 0 %}
+        <div style="padding: 20px; text-align: center; color: var(--color-muted); font-size: 13px;">
+          ✓ No active escrow disputes logged. All jobs are either smoothly released via OTP or safely held in the Nodal Vault.
+        </div>
+      {% else %}
+        <div style="padding: 16px; display:flex; flex-direction:column; gap:16px;">
+          {% for d in disputed_escrows %}
+            <div style="background: #FFFDF5; border: 1px solid #FDE68A; border-radius: var(--radius-md); padding: 16px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                <div>
+                  <div style="font-weight: 800; font-size: 14px; color: #92400E;">
+                    Escrow ID: {{ d['id'] }} &middot; Ref: {{ d['gateway_tx_id'] }} (&#8377;{{ d['amount'] }})
+                  </div>
+                  <div style="font-size: 12.5px; color: var(--color-ink); margin-top: 4px;">
+                    <strong>Customer:</strong> {{ d['customer_name'] }} (📞 {{ d['customer_phone'] }}) &nbsp;|&nbsp;
+                    <strong>Worker:</strong> {{ d['worker_name'] or 'Assigned Worker' }} (📞 {{ d['worker_phone'] or 'N/A' }}) &nbsp;|&nbsp;
+                    <strong>Trade:</strong> {{ category_label(d['category']) }}
+                  </div>
+                  <div style="font-size: 12px; color: #B45309; margin-top: 6px; background:#FEF3C7; padding:8px 12px; border-radius:6px;">
+                    <strong>Dispute Stated (by {{ d['dispute_opened_by']|capitalize if d['dispute_opened_by'] else 'Party' }}):</strong> "{{ d['dispute_reason'] }}"
+                  </div>
+                </div>
+                <div style="text-align: right;">
+                  <span class="badge" style="background:#FEE2E2; color:#991B1B; border:1px solid #FCA5A5;">Frozen in Vault</span>
+                  <div style="font-size:11px; color:var(--color-muted); margin-top:4px;">Held At: {{ d['held_at'][:16] }}</div>
+                </div>
+              </div>
+
+              <!-- Officer Conciliation Actions -->
+              <form method="POST" action="{{ url_for('admin_escrow_resolve', escrow_id=d['id']) }}" style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #FDE68A;">
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                  <div style="flex:1; min-width:220px;">
+                    <input type="text" name="resolution_notes" placeholder="Federation Officer inspection findings / CCTNS GPS audit result..." required style="font-size:12px;" />
+                  </div>
+                  <button type="submit" name="action" value="release_to_worker" class="btn btn-sm btn-primary" style="background:#15803D; border-color:#166534; font-size:12px;">
+                    ✓ Release to Worker (87/5/8 Split)
+                  </button>
+                  <button type="submit" name="action" value="refund_to_customer" class="btn btn-sm btn-secondary" style="background:#DC2626; color:#fff; border-color:#B91C1C; font-size:12px;">
+                    ↩ Refund to Customer
+                  </button>
+                </div>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
     <!-- WELFARE METRICS -->
     <div class="grid grid-3" style="margin-bottom: 24px;">
       <div class="card kpi-card" style="padding: 20px; border-left: 4px solid #15803D;">
@@ -531,6 +634,62 @@
                 <td><span style="color: #047857; font-weight: 600;">&#8377;{{ p['welfare_contribution'] }}</span></td>
                 <td><span>&#8377;{{ p['federation_commission'] }}</span></td>
                 <td style="font-size: 12px; color: var(--color-muted);">{{ p['created_at'][:16] }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </div>
+
+    <!-- ESCROW TRANSACTIONS AUDIT TRAIL -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-header-row">
+        <div>
+          <h3>🔒 Cooperative Escrow Vault Audit Trail</h3>
+          <span class="help-text" style="margin:0;">Nodal gateway transactions with RBI mandate references and tamper-proof milestone states.</span>
+        </div>
+        <span class="badge badge-escrow">{{ escrow_ledger|length }} Escrow Transactions</span>
+      </div>
+
+      {% if escrow_ledger|length == 0 %}
+        <div class="empty-state" style="padding: 20px;">No escrow transactions logged yet.</div>
+      {% else %}
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>Escrow Ref</th>
+              <th>Customer</th>
+              <th>Worker</th>
+              <th>Trade</th>
+              <th>Amount</th>
+              <th>Gateway</th>
+              <th>Status</th>
+              <th>Held Date</th>
+              <th>Settled Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in escrow_ledger %}
+              <tr>
+                <td><span style="font-family: monospace; font-weight: 700; color: #B45309;">{{ e['gateway_tx_id'] }}</span></td>
+                <td>{{ e['customer_name'] }}</td>
+                <td><strong>{{ e['worker_name'] or 'Pending Dispatch' }}</strong></td>
+                <td><span class="badge badge-matched">{{ category_label(e['category']) }}</span></td>
+                <td><strong>&#8377;{{ e['amount'] }}</strong></td>
+                <td><span style="font-size: 11px; font-weight: 600;">{{ e['gateway_name'] }}</span></td>
+                <td>
+                  {% if e['status'] == 'released' %}
+                    <span class="badge badge-completed">✓ Released</span>
+                  {% elif e['status'] == 'held' %}
+                    <span class="badge badge-escrow">🔒 Held</span>
+                  {% elif e['status'] == 'disputed' %}
+                    <span class="badge" style="background:#FEE2E2; color:#991B1B; border:1px solid #FCA5A5;">⚖️ Disputed</span>
+                  {% elif e['status'] == 'refunded' %}
+                    <span class="badge" style="background:#F3F4F6; color:#4B5563;">↩ Refunded</span>
+                  {% endif %}
+                </td>
+                <td style="font-size: 11.5px; color: var(--color-muted);">{{ e['held_at'][:16] }}</td>
+                <td style="font-size: 11.5px; color: var(--color-muted);">{{ e['released_at'][:16] if e['released_at'] else '—' }}</td>
               </tr>
             {% endfor %}
           </tbody>

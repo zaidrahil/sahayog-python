@@ -218,11 +218,20 @@ def customer_dashboard():
                   worker_users.name AS worker_name,
                   worker_users.phone AS worker_phone,
                   payments.invoice_no, payments.worker_payout,
-                  payments.welfare_contribution, payments.federation_commission
+                  payments.welfare_contribution, payments.federation_commission,
+                  escrow_transactions.id AS escrow_id,
+                  escrow_transactions.amount AS escrow_amount,
+                  escrow_transactions.gateway_name AS escrow_gateway,
+                  escrow_transactions.gateway_tx_id AS escrow_tx_id,
+                  escrow_transactions.status AS escrow_tx_status,
+                  escrow_transactions.dispute_reason,
+                  escrow_transactions.dispute_opened_by,
+                  escrow_transactions.resolution_notes
            FROM bookings
            LEFT JOIN workers ON workers.id = bookings.worker_id
            LEFT JOIN users AS worker_users ON worker_users.id = workers.user_id
            LEFT JOIN payments ON payments.booking_id = bookings.id
+           LEFT JOIN escrow_transactions ON escrow_transactions.booking_id = bookings.id
            WHERE bookings.customer_id = ?
            ORDER BY bookings.created_at DESC""",
         (user["id"],),
@@ -271,6 +280,11 @@ def customer_book():
     lng = float(request.form.get("lng"))
     urgent = request.form.get("urgent") == "on"
     preferred_lang = request.form.get("preferred_lang", "en").strip()
+    try:
+        escrow_amount = float(request.form.get("escrow_amount", 350.0))
+    except (ValueError, TypeError):
+        escrow_amount = 350.0
+    gateway_name = request.form.get("gateway_name", "UPI").strip()
 
     conn = get_connection()
     workers = conn.execute("SELECT * FROM workers").fetchall()
@@ -278,14 +292,24 @@ def customer_book():
 
     completion_otp = f"{random.randint(1000, 9999)}"
     booking_id = new_id()
+    escrow_id = new_id()
+    gateway_tx_id = f"ESCR-{gateway_name.upper()}-{random.randint(10000000, 99999999)}"
+
     conn.execute(
         """INSERT INTO bookings
            (id, customer_id, worker_id, category, description, status, urgent,
             lat, lng, distance_km, price, completion_otp, escrow_status, language, created_at, completed_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 'unpaid', ?, ?, NULL)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'held', ?, ?, NULL)""",
         (booking_id, user["id"], matched_worker["id"] if matched_worker else None,
          category, description, "matched" if matched_worker else "pending",
-         1 if urgent else 0, lat, lng, distance, completion_otp, preferred_lang, now()),
+         1 if urgent else 0, lat, lng, distance, escrow_amount, completion_otp, preferred_lang, now()),
+    )
+    conn.execute(
+        """INSERT INTO escrow_transactions
+           (id, booking_id, customer_id, worker_id, amount, gateway_name, gateway_tx_id, status, held_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'held', ?)""",
+        (escrow_id, booking_id, user["id"], matched_worker["id"] if matched_worker else None,
+         escrow_amount, gateway_name, gateway_tx_id, now()),
     )
     conn.commit()
     conn.close()
@@ -294,10 +318,45 @@ def customer_book():
     lang_name = lang_labels.get(preferred_lang, preferred_lang.upper())
 
     if matched_worker:
-        flash(f"Matched with verified {lang_name}-speaking {category_label(category)} ({distance} km away)! Zero advance payment — pay directly after job completion. Completion OTP: {completion_otp}.", "success")
+        flash(f"Matched with verified {lang_name}-speaking {category_label(category)} ({distance} km away)! ₹{int(escrow_amount)} secured in Cooperative Escrow Vault ({gateway_tx_id}). Completion OTP: {completion_otp}.", "success")
     else:
-        flash(f"No verified {lang_name}-speaking worker available in this radius right now — your request is queued as pending.", "info")
+        flash(f"₹{int(escrow_amount)} locked in Escrow Vault ({gateway_tx_id}). No {lang_name}-speaking worker available immediately — request queued.", "info")
 
+    return redirect(url_for("customer_dashboard") + "#bookings")
+
+
+@app.route("/customer/dispute/<booking_id>", methods=["POST"])
+def customer_dispute(booking_id):
+    redirect_response = require_role("customer")
+    if redirect_response:
+        return redirect_response
+
+    user = current_user()
+    reason = request.form.get("reason", "Service not delivered as expected / quality dispute").strip()
+
+    conn = get_connection()
+    booking = conn.execute("SELECT * FROM bookings WHERE id = ? AND customer_id = ?", (booking_id, user["id"])).fetchone()
+    if not booking:
+        conn.close()
+        flash("Booking not found.", "error")
+        return redirect(url_for("customer_dashboard") + "#bookings")
+
+    if booking["escrow_status"] in ("released", "refunded"):
+        conn.close()
+        flash("Cannot dispute an escrow that has already been released or refunded.", "error")
+        return redirect(url_for("customer_dashboard") + "#bookings")
+
+    conn.execute("UPDATE bookings SET escrow_status = 'disputed' WHERE id = ?", (booking_id,))
+    conn.execute(
+        """UPDATE escrow_transactions
+           SET status = 'disputed', dispute_reason = ?, dispute_opened_by = 'customer'
+           WHERE booking_id = ?""",
+        (reason, booking_id),
+    )
+    conn.commit()
+    conn.close()
+
+    flash(f"Dispute logged. Escrow funds are frozen under Federation Conciliation. Case reason: '{reason}'.", "info")
     return redirect(url_for("customer_dashboard") + "#bookings")
 
 
@@ -531,9 +590,17 @@ def worker_dashboard():
     conn = get_connection()
     profile = conn.execute("SELECT * FROM workers WHERE user_id = ?", (user["id"],)).fetchone()
     bookings = conn.execute(
-        """SELECT bookings.*, users.name AS customer_name, users.phone AS customer_phone
+        """SELECT bookings.*, users.name AS customer_name, users.phone AS customer_phone,
+                  escrow_transactions.id AS escrow_id,
+                  escrow_transactions.amount AS escrow_amount,
+                  escrow_transactions.gateway_name AS escrow_gateway,
+                  escrow_transactions.gateway_tx_id AS escrow_tx_id,
+                  escrow_transactions.status AS escrow_tx_status,
+                  escrow_transactions.dispute_reason,
+                  escrow_transactions.dispute_opened_by
            FROM bookings
            JOIN users ON users.id = bookings.customer_id
+           LEFT JOIN escrow_transactions ON escrow_transactions.booking_id = bookings.id
            WHERE bookings.worker_id = ?
            ORDER BY bookings.created_at DESC""",
         (profile["id"],),
@@ -703,16 +770,8 @@ def worker_complete(booking_id):
         return redirect_response
 
     user = current_user()
-    price = request.form.get("price")
+    price_raw = request.form.get("price")
     entered_otp = request.form.get("otp", "").strip()
-
-    if not price or float(price) <= 0:
-        flash("Enter a valid final price.", "error")
-        return redirect(url_for("worker_dashboard"))
-
-    if not entered_otp:
-        flash("Please enter the 4-digit customer completion OTP.", "error")
-        return redirect(url_for("worker_dashboard"))
 
     conn = get_connection()
     profile = conn.execute("SELECT * FROM workers WHERE user_id = ?", (user["id"],)).fetchone()
@@ -723,19 +782,87 @@ def worker_complete(booking_id):
         flash("This booking was not matched to you.", "error")
         return redirect(url_for("worker_dashboard"))
 
+    if not entered_otp:
+        conn.close()
+        flash("Please enter the 4-digit customer completion OTP.", "error")
+        return redirect(url_for("worker_dashboard"))
+
     expected_otp = str(booking["completion_otp"]).strip() if booking["completion_otp"] else None
     if expected_otp and entered_otp != expected_otp:
         conn.close()
         flash(f"Invalid OTP '{entered_otp}'. Ask the customer for the 4-digit verification code shown on their dashboard.", "error")
         return redirect(url_for("worker_dashboard"))
 
+    try:
+        amount = float(price_raw) if price_raw and float(price_raw) > 0 else (booking["price"] or 350.0)
+    except (ValueError, TypeError):
+        amount = booking["price"] or 350.0
+
+    welfare_contribution = round(amount * WELFARE_CONTRIBUTION_PCT, 2)
+    federation_commission = round(amount * FEDERATION_COMMISSION_PCT, 2)
+    worker_payout = round(amount - welfare_contribution - federation_commission, 2)
+
+    payment_count = conn.execute("SELECT COUNT(*) AS c FROM payments").fetchone()["c"]
+    invoice_no = f"SHY-{datetime.now().year}-{1001 + payment_count}"
+
     conn.execute(
-        "UPDATE bookings SET status = 'completed', price = ?, escrow_status = 'pending_payment', completed_at = ? WHERE id = ?",
-        (float(price), now(), booking_id),
+        """INSERT INTO payments
+           (id, booking_id, amount, method, welfare_contribution,
+            federation_commission, worker_payout, invoice_no, created_at)
+           VALUES (?, ?, ?, 'Co-op Escrow', ?, ?, ?, ?, ?)""",
+        (new_id(), booking_id, amount, welfare_contribution,
+         federation_commission, worker_payout, invoice_no, now()),
+    )
+    conn.execute(
+        "UPDATE workers SET welfare_wallet = welfare_wallet + ? WHERE id = ?",
+        (welfare_contribution, profile["id"]),
+    )
+    conn.execute(
+        """UPDATE escrow_transactions
+           SET status = 'released', released_at = ?, amount = ?
+           WHERE booking_id = ?""",
+        (now(), amount, booking_id),
+    )
+    conn.execute(
+        "UPDATE bookings SET status = 'completed', price = ?, escrow_status = 'released', completed_at = ? WHERE id = ?",
+        (amount, now(), booking_id),
     )
     conn.commit()
     conn.close()
-    flash(f"Customer OTP verified! Job completed at Rs.{price}. The customer will now inspect and settle payment.", "success")
+
+    flash(f"Customer OTP verified! Escrow of Rs.{amount} successfully released: Rs.{worker_payout} direct payout, Rs.{welfare_contribution} to Welfare Wallet. Invoice {invoice_no} issued.", "success")
+    return redirect(url_for("worker_dashboard"))
+
+
+@app.route("/worker/dispute/<booking_id>", methods=["POST"])
+def worker_dispute(booking_id):
+    redirect_response = require_role("worker")
+    if redirect_response:
+        return redirect_response
+
+    user = current_user()
+    reason = request.form.get("reason", "Customer withholding completion OTP despite finished on-site work.").strip()
+
+    conn = get_connection()
+    profile = conn.execute("SELECT * FROM workers WHERE user_id = ?", (user["id"],)).fetchone()
+    booking = conn.execute("SELECT * FROM bookings WHERE id = ? AND worker_id = ?", (booking_id, profile["id"])).fetchone()
+
+    if not booking:
+        conn.close()
+        flash("Booking not found.", "error")
+        return redirect(url_for("worker_dashboard"))
+
+    conn.execute("UPDATE bookings SET escrow_status = 'disputed' WHERE id = ?", (booking_id,))
+    conn.execute(
+        """UPDATE escrow_transactions
+           SET status = 'disputed', dispute_reason = ?, dispute_opened_by = 'worker'
+           WHERE booking_id = ?""",
+        (reason, booking_id),
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Escrow dispute escalated to Federation Conciliation Desk. Officer will inspect work evidence and conciliate.", "info")
     return redirect(url_for("worker_dashboard"))
 
 
@@ -856,6 +983,37 @@ def admin_dashboard():
     ).fetchone()
     total_disbursed = total_disbursed_row["total_disbursed"] if total_disbursed_row else 0
 
+    # Escrow Vault Statistics & Conciliation Queues
+    escrow_held = conn.execute("SELECT COALESCE(SUM(amount), 0) AS s FROM escrow_transactions WHERE status = 'held'").fetchone()["s"]
+    escrow_released = conn.execute("SELECT COALESCE(SUM(amount), 0) AS s FROM escrow_transactions WHERE status = 'released'").fetchone()["s"]
+    escrow_disputed = conn.execute("SELECT COALESCE(SUM(amount), 0) AS s FROM escrow_transactions WHERE status = 'disputed'").fetchone()["s"]
+
+    disputed_escrows = conn.execute(
+        """SELECT escrow_transactions.*, bookings.category, bookings.description, bookings.completion_otp,
+                  customer.name AS customer_name, customer.phone AS customer_phone,
+                  worker_users.name AS worker_name, worker_users.phone AS worker_phone
+           FROM escrow_transactions
+           JOIN bookings ON bookings.id = escrow_transactions.booking_id
+           JOIN users AS customer ON customer.id = escrow_transactions.customer_id
+           LEFT JOIN workers ON workers.id = escrow_transactions.worker_id
+           LEFT JOIN users AS worker_users ON worker_users.id = workers.user_id
+           WHERE escrow_transactions.status = 'disputed'
+           ORDER BY escrow_transactions.held_at DESC"""
+    ).fetchall()
+
+    escrow_ledger = conn.execute(
+        """SELECT escrow_transactions.*, bookings.category,
+                  customer.name AS customer_name,
+                  worker_users.name AS worker_name
+           FROM escrow_transactions
+           JOIN bookings ON bookings.id = escrow_transactions.booking_id
+           JOIN users AS customer ON customer.id = escrow_transactions.customer_id
+           LEFT JOIN workers ON workers.id = escrow_transactions.worker_id
+           LEFT JOIN users AS worker_users ON worker_users.id = workers.user_id
+           ORDER BY escrow_transactions.held_at DESC
+           LIMIT 50"""
+    ).fetchall()
+
     # NCCT Retraining Candidate Workers (Rating < 4.0 or flagged)
     retraining_workers = conn.execute(
         """SELECT workers.*, users.name AS name, users.phone AS phone
@@ -885,6 +1043,9 @@ def admin_dashboard():
         "net_welfare": net_welfare if net_welfare > 0 else 0,
         "total_commission": revenue_row["commission"],
         "avg_rating": round(avg_rating_row["avg_rating"], 2) if avg_rating_row["avg_rating"] else None,
+        "total_escrow_held": round(escrow_held, 2),
+        "total_escrow_released": round(escrow_released, 2),
+        "total_escrow_disputed": round(escrow_disputed, 2),
     }
 
     return render_template(
@@ -899,8 +1060,89 @@ def admin_dashboard():
         payments_ledger=payments_ledger,
         welfare_disbursals=welfare_disbursals,
         retraining_workers=retraining_workers,
+        disputed_escrows=disputed_escrows,
+        escrow_ledger=escrow_ledger,
         category_label=category_label,
     )
+
+
+@app.route("/admin/escrow/resolve/<escrow_id>", methods=["POST"])
+def admin_escrow_resolve(escrow_id):
+    redirect_response = require_role("admin")
+    if redirect_response:
+        return redirect_response
+
+    action = request.form.get("action")  # "release_to_worker" or "refund_to_customer"
+    notes = request.form.get("resolution_notes", "").strip()
+
+    conn = get_connection()
+    escrow = conn.execute("SELECT * FROM escrow_transactions WHERE id = ?", (escrow_id,)).fetchone()
+    if not escrow:
+        conn.close()
+        flash("Escrow record not found.", "error")
+        return redirect(url_for("admin_dashboard") + "#welfare")
+
+    booking = conn.execute("SELECT * FROM bookings WHERE id = ?", (escrow["booking_id"],)).fetchone()
+
+    if action == "release_to_worker":
+        amount = escrow["amount"]
+        welfare_contribution = round(amount * WELFARE_CONTRIBUTION_PCT, 2)
+        federation_commission = round(amount * FEDERATION_COMMISSION_PCT, 2)
+        worker_payout = round(amount - welfare_contribution - federation_commission, 2)
+
+        payment_count = conn.execute("SELECT COUNT(*) AS c FROM payments").fetchone()["c"]
+        invoice_no = f"SHY-{datetime.now().year}-{1001 + payment_count}"
+
+        existing_p = conn.execute("SELECT id FROM payments WHERE booking_id = ?", (escrow["booking_id"],)).fetchone()
+        if not existing_p:
+            conn.execute(
+                """INSERT INTO payments
+                   (id, booking_id, amount, method, welfare_contribution,
+                    federation_commission, worker_payout, invoice_no, created_at)
+                   VALUES (?, ?, ?, 'Conciliated Escrow', ?, ?, ?, ?, ?)""",
+                (new_id(), escrow["booking_id"], amount, welfare_contribution,
+                 federation_commission, worker_payout, invoice_no, now()),
+            )
+            if escrow["worker_id"]:
+                conn.execute(
+                    "UPDATE workers SET welfare_wallet = welfare_wallet + ? WHERE id = ?",
+                    (welfare_contribution, escrow["worker_id"]),
+                )
+
+        conn.execute(
+            """UPDATE escrow_transactions
+               SET status = 'released', released_at = ?, resolution_notes = ?
+               WHERE id = ?""",
+            (now(), f"Conciliation Release: {notes}", escrow_id),
+        )
+        conn.execute(
+            "UPDATE bookings SET status = 'completed', price = ?, escrow_status = 'released', completed_at = ? WHERE id = ?",
+            (amount, now(), escrow["booking_id"]),
+        )
+        conn.commit()
+        conn.close()
+        flash(f"Dispute resolved: Escrow Rs.{amount} released to worker following federation audit. Invoice {invoice_no} logged.", "success")
+
+    elif action == "refund_to_customer":
+        conn.execute(
+            """UPDATE escrow_transactions
+               SET status = 'refunded', resolution_notes = ?
+               WHERE id = ?""",
+            (f"Conciliation Refund: {notes}", escrow_id),
+        )
+        conn.execute(
+            "UPDATE bookings SET status = 'cancelled', escrow_status = 'refunded' WHERE id = ?",
+            (escrow["booking_id"],),
+        )
+        conn.commit()
+        conn.close()
+        flash(f"Dispute resolved: Escrow deposit of Rs.{escrow['amount']} refunded to customer source account.", "info")
+
+    else:
+        conn.close()
+        flash("Invalid arbitration action.", "error")
+
+    return redirect(url_for("admin_dashboard") + "#welfare")
 
 
 @app.route("/admin/verify/worker/<worker_id>")

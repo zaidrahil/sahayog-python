@@ -123,6 +123,23 @@ CREATE TABLE IF NOT EXISTS welfare_disbursals (
     officer_notes TEXT,
     disbursed_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS escrow_transactions (
+    id TEXT PRIMARY KEY,
+    booking_id TEXT NOT NULL UNIQUE REFERENCES bookings(id),
+    customer_id TEXT NOT NULL REFERENCES users(id),
+    worker_id TEXT REFERENCES workers(id),
+    amount REAL NOT NULL,
+    gateway_name TEXT NOT NULL DEFAULT 'UPI',
+    gateway_tx_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'held',
+    held_at TEXT NOT NULL,
+    released_at TEXT,
+    dispute_reason TEXT,
+    dispute_opened_by TEXT,
+    resolution_notes TEXT,
+    worker_completion_proof_url TEXT
+);
 """
 
 # The ten worker categories named explicitly in the SIH26089 problem statement.
@@ -261,6 +278,42 @@ def init_db():
                 """INSERT INTO welfare_disbursals (id, worker_id, grant_type, amount, officer_notes, disbursed_at)
                    VALUES ('wgrant-1001', ?, 'Emergency Medical Assistance', 2500.0, 'Approved for hospitalization bill co-payment under Sahayog Cooperative Welfare bylaws.', '2026-08-20T14:30:00')""",
                 (sample_w["id"],)
+            )
+
+    # Ensure escrow_transactions table exists
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS escrow_transactions (
+            id TEXT PRIMARY KEY,
+            booking_id TEXT NOT NULL UNIQUE REFERENCES bookings(id),
+            customer_id TEXT NOT NULL REFERENCES users(id),
+            worker_id TEXT REFERENCES workers(id),
+            amount REAL NOT NULL,
+            gateway_name TEXT NOT NULL DEFAULT 'UPI',
+            gateway_tx_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'held',
+            held_at TEXT NOT NULL,
+            released_at TEXT,
+            dispute_reason TEXT,
+            dispute_opened_by TEXT,
+            resolution_notes TEXT,
+            worker_completion_proof_url TEXT
+        )"""
+    )
+
+    # Backfill escrow records for existing bookings if missing
+    existing_bookings = conn.execute("SELECT * FROM bookings").fetchall()
+    for b in existing_bookings:
+        has_escrow = conn.execute("SELECT id FROM escrow_transactions WHERE booking_id = ?", (b["id"],)).fetchone()
+        if not has_escrow:
+            escrow_amt = b["price"] if b["price"] and b["price"] > 0 else 350.0
+            st = "released" if b["status"] == "completed" or b["escrow_status"] in ("paid", "released") else "held"
+            rel_at = b["completed_at"] if st == "released" else None
+            tx_id = f"ESCR-UPI-{b['id'][:8].upper()}"
+            conn.execute(
+                """INSERT OR IGNORE INTO escrow_transactions
+                   (id, booking_id, customer_id, worker_id, amount, gateway_name, gateway_tx_id, status, held_at, released_at)
+                   VALUES (?, ?, ?, ?, ?, 'UPI', ?, ?, ?, ?)""",
+                (f"escrow-{b['id'][:8]}", b["id"], b["customer_id"], b["worker_id"], escrow_amt, tx_id, st, b["created_at"], rel_at)
             )
 
     conn.commit()

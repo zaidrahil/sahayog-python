@@ -121,7 +121,7 @@
         COOPERATIVE HOUSEHOLD SERVICES
       </div>
       <h1>Welcome back, {{ current_user['name'] }} 👋</h1>
-      <p>Book verified cooperative workers with zero advance fees, transparent union-regulated pricing, and pay directly after service completion.</p>
+      <p>Book verified cooperative workers with RBI-compliant milestone escrow security, transparent union-regulated pricing, and dual-evidence OTP release.</p>
       <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
         <a href="{{ url_for('customer_settings') }}" class="btn btn-sm" style="background: rgba(255,255,255,0.18); color: #fff; border: 1.2px solid rgba(255,255,255,0.35); backdrop-filter: blur(4px); font-weight: 600;">
           ⚙️ Profile &amp; Account Settings
@@ -134,8 +134,8 @@
         <div class="stat-lbl">Total Bookings</div>
       </div>
       <div class="hero-stat-badge">
-        <div class="stat-num">&#8377;0 Advance</div>
-        <div class="stat-lbl">Pay After Work</div>
+        <div class="stat-num">🔒 Escrow</div>
+        <div class="stat-lbl">100% Secured Vault</div>
       </div>
       <div class="hero-stat-badge">
         <div class="stat-num">2.5 km</div>
@@ -354,11 +354,35 @@
               </div>
             </div>
 
-            <button class="btn btn-primary btn-block" type="submit" style="font-size: 16px; padding: 14px; box-shadow: 0 4px 14px rgba(15, 81, 50, 0.2);">
-              🚀 Match Nearest Worker &amp; Pay After Service
+            <!-- ESCROW DEPOSIT & GATEWAY AUTHORIZATION -->
+            <div class="field" style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 6px;">
+              <div style="font-weight: 700; color: #166534; font-size: 13px; margin-bottom: 3px; display:flex; align-items:center; gap:6px;">
+                <span>🔒</span> Milestone Escrow Vault Guarantee
+              </div>
+              <div style="font-size: 11.5px; color: #15803D; line-height: 1.4; margin-bottom: 8px;">
+                Funds are secured in the RBI-compliant Cooperative Nodal Vault. Released to the worker only when you provide the 4-digit completion OTP.
+              </div>
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <div style="flex:1; min-width: 140px;">
+                  <label style="font-size:11px; margin-bottom:2px; color:#166534; font-weight:600;">Gateway Option</label>
+                  <select name="gateway_name" style="font-size:12px; padding:6px 10px;">
+                    <option value="UPI">UPI Intent (GPay / PhonePe / BHIM)</option>
+                    <option value="RuPay">RuPay National Debit/Credit</option>
+                    <option value="NetBanking">Cooperative Bank NetBanking</option>
+                  </select>
+                </div>
+                <div style="flex:1; min-width: 120px;">
+                  <label style="font-size:11px; margin-bottom:2px; color:#166534; font-weight:600;">Escrow Deposit (&#8377;)</label>
+                  <input type="number" name="escrow_amount" id="escrow-amount-input" value="350" min="100" max="3000" style="font-size:12px; font-weight:700; padding:6px 10px;" />
+                </div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary btn-block" type="submit" style="font-size: 15px; padding: 13px; box-shadow: 0 4px 14px rgba(15, 81, 50, 0.2);">
+              🔒 Authorize Escrow &amp; Dispatch Worker
             </button>
             <div style="font-size: 11.5px; color: var(--color-muted); text-align: center; margin-top: -6px;">
-              🛡️ Guaranteed no surge pricing &middot; Pay technician directly only after work is done
+              🛡️ Zero surge pricing &middot; Escrow protected &middot; Cancelable before dispatch
             </div>
           </div>
         </div>
@@ -416,12 +440,16 @@
                   <span class="lang-badge">🗣️ {{ lang_names.get(b['language'], b['language']|upper if b['language'] else 'English') }}</span>
                   <span class="badge badge-{{ b['status'] }}">{{ b['status'] }}</span>
                   {% if b['urgent'] %}<span class="badge badge-urgent">urgent</span>{% endif %}
-                  {% if b['invoice_no'] %}
-                    <span class="badge badge-completed">✓ Paid &amp; Settled</span>
-                  {% elif b['status'] == 'completed' %}
-                    <span class="badge badge-pending">Payment Due</span>
+                  {% if b['invoice_no'] or b['escrow_status'] == 'released' %}
+                    <span class="badge badge-completed">✓ Escrow Released</span>
+                  {% elif b['escrow_status'] == 'disputed' %}
+                    <span class="badge" style="background:#FEE2E2; color:#991B1B; border:1px solid #FCA5A5;">⚖️ In Dispute Conciliation</span>
+                  {% elif b['escrow_status'] == 'refunded' %}
+                    <span class="badge" style="background:#F3F4F6; color:#4B5563;">↩ Escrow Refunded</span>
+                  {% elif b['escrow_status'] == 'held' %}
+                    <span class="badge badge-escrow">🔒 Escrow Held (&#8377;{{ b['escrow_amount'] or b['price'] or 350 }})</span>
                   {% else %}
-                    <span class="badge badge-matched">Pay After Work</span>
+                    <span class="badge badge-matched">Escrow Pending</span>
                   {% endif %}
                 </div>
               </div>
@@ -475,19 +503,72 @@
                 </div>
               {% endif %}
 
-              <!-- JOB COMPLETION OTP VAULT -->
-              {% if b['status'] in ['matched', 'accepted'] and b['completion_otp'] %}
-                <div class="otp-vault-box">
-                  <div class="otp-vault-top">
+              <!-- JOB COMPLETION OTP VAULT & ESCROW BOX -->
+              {% if b['escrow_status'] == 'held' and b['completion_otp'] %}
+                <div class="otp-vault-box" style="background: #FFFBEB; border: 1.5px solid #FDE68A;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
                     <div>
-                      <div style="font-size: 11.5px; font-weight: 800; color: #92400E; letter-spacing: 0.05em;">
-                        🔒 SERVICE COMPLETION VERIFICATION OTP
+                      <div style="font-size: 12px; font-weight: 800; color: #92400E; letter-spacing: 0.04em; display:flex; align-items:center; gap:6px;">
+                        <span>🛡️</span> COOPERATIVE MILESTONE ESCROW LOCKBOX
                       </div>
-                      <div style="font-size: 11.5px; color: #B45309; margin-top: 2px;">
-                        Give this code to the worker only after inspecting the completed job. Pay directly afterwards.
+                      <div style="font-size: 13px; color: #B45309; margin-top: 3px; font-weight: 600;">
+                        Deposit of &#8377;{{ b['escrow_amount'] or b['price'] or 350 }} Secured &middot; Ref: <code style="font-family: monospace; font-size:11.5px; background: rgba(0,0,0,0.06); padding:2px 5px; border-radius:4px;">{{ b['escrow_tx_id'] or 'ESCR-UPI-SECURED' }}</code>
+                      </div>
+                      <div style="font-size: 11.5px; color: #78350F; margin-top: 4px;">
+                        Funds are held under cooperative custody. Share this 4-digit code with the worker <em>only after</em> inspecting finished workmanship on-site to release payment.
                       </div>
                     </div>
-                    <div class="otp-vault-code">{{ b['completion_otp'] }}</div>
+                    <div style="text-align: right;">
+                      <div style="font-size: 10.5px; color: #92400E; font-weight: 700; text-transform: uppercase;">Completion OTP</div>
+                      <div class="otp-vault-code" style="background: #FEF3C7; border: 1.5px solid #F59E0B; color: #92400E; padding: 4px 14px; border-radius: 8px; font-size: 20px; font-weight: 800; letter-spacing: 3px;">
+                        {{ b['completion_otp'] }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Escrow Dispute Trigger -->
+                  <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #FDE68A; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <span style="font-size: 11.5px; color: #92400E;">Unsatisfied with service quality? Freeze escrow for conciliation:</span>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="toggleDisputeForm('{{ b['id'] }}')" style="font-size: 11px; border-color: #D97706; color: #92400E; background: #FFF;">
+                      ⚖️ Raise Escrow Dispute
+                    </button>
+                  </div>
+
+                  <!-- DISPUTE FORM -->
+                  <form id="dispute-form-{{ b['id'] }}" method="POST" action="{{ url_for('customer_dispute', booking_id=b['id']) }}" style="display: none; margin-top: 10px; background: #FFF; padding: 12px; border-radius: var(--radius-sm); border: 1px solid #FCD34D;">
+                    <div style="font-size: 12px; font-weight: 700; color: #92400E; margin-bottom: 6px;">Escalate to Federation Conciliation Officer:</div>
+                    <div class="field" style="margin-bottom: 8px;">
+                      <input type="text" name="reason" placeholder="e.g. Technician arrived late / unfinished job / damaged property" required style="font-size: 12px;" />
+                    </div>
+                    <button type="submit" class="btn btn-sm" style="background: #DC2626; color: #fff; font-weight: 600; font-size: 11.5px;">
+                      Freeze Escrow &amp; Submit Dispute
+                    </button>
+                  </form>
+                </div>
+              {% elif b['escrow_status'] == 'disputed' %}
+                <div style="margin-top: 12px; background: #FEF2F2; border: 1.5px solid #FECACA; border-radius: var(--radius-md); padding: 14px 16px;">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+                    <div>
+                      <div style="font-weight: 800; font-size: 13.5px; color: #991B1B; display:flex; align-items:center; gap:6px;">
+                        <span>⚖️</span> ESCROW DISPUTE UNDER FEDERATION CONCILIATION
+                      </div>
+                      <div style="font-size: 12px; color: #B91C1C; margin-top: 4px;">
+                        <strong>Dispute Reason:</strong> {{ b['dispute_reason'] or 'Under officer review' }}
+                      </div>
+                      <div style="font-size: 11.5px; color: #7F1D1D; margin-top: 4px;">
+                        Escrow deposit of &#8377;{{ b['escrow_amount'] or b['price'] }} is frozen. A Federation Dispute Conciliation Officer is reviewing GPS timestamp logs and job notes.
+                      </div>
+                    </div>
+                    <span class="badge" style="background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5;">Frozen in Vault</span>
+                  </div>
+                </div>
+              {% elif b['escrow_status'] == 'refunded' %}
+                <div style="margin-top: 12px; background: #F3F4F6; border: 1.5px solid #E5E7EB; border-radius: var(--radius-md); padding: 12px 14px;">
+                  <div style="font-weight: 700; color: #374151; font-size: 13px;">
+                    ↩ Escrow Refunded &middot; &#8377;{{ b['escrow_amount'] or b['price'] }}
+                  </div>
+                  <div style="font-size: 11.5px; color: #6B7280; margin-top: 2px;">
+                    Federation Conciliation Officer resolved the case and issued a full refund to your source account.
                   </div>
                 </div>
               {% endif %}
@@ -495,38 +576,36 @@
               <div style="font-size: 12.5px; color: var(--color-muted); display:flex; justify-content:space-between; margin-top:10px;">
                 <span>Requested: {{ b['created_at'][:16] }}</span>
                 {% if b['price'] %}
-                  <span style="font-weight: 700; color: var(--color-primary-dark);">Agreed Tariff: &#8377;{{ b['price'] }}</span>
+                  <span style="font-weight: 700; color: var(--color-primary-dark);">Escrow Value: &#8377;{{ b['price'] }}</span>
                 {% endif %}
               </div>
 
               <!-- COMPLETION & SETTLEMENT RECEIPT -->
-              {% if b['status'] == 'completed' %}
+              {% if b['status'] == 'completed' or b['escrow_status'] == 'released' %}
                 {% if b['invoice_no'] %}
                   <div class="receipt-box">
                     <div style="font-weight: 700; font-size: 13.5px; color: var(--color-primary-dark); display:flex; justify-content:space-between;">
                       <span>🧾 Invoice: {{ b['invoice_no'] }}</span>
-                      <span style="color: #16A34A;">✓ Paid &amp; Settled</span>
+                      <span style="color: #16A34A;">✓ Escrow Released &amp; Settled</span>
                     </div>
                     <div class="receipt-row"><span>Direct Worker Payout (87%):</span> <strong>&#8377;{{ b['worker_payout'] }}</strong></div>
                     <div class="receipt-row"><span>Worker Welfare Wallet (5%):</span> <strong style="color:#16A34A;">&#8377;{{ b['welfare_contribution'] }}</strong></div>
                     <div class="receipt-row"><span>Federation Administration (8%):</span> <span>&#8377;{{ b['federation_commission'] }}</span></div>
-                    <div class="receipt-row receipt-total"><span>Total Paid:</span> <span>&#8377;{{ b['price'] }}</span></div>
+                    <div class="receipt-row receipt-total"><span>Total Escrow Settled:</span> <span>&#8377;{{ b['price'] }}</span></div>
+                    <div style="font-size: 11px; color: var(--color-muted); margin-top: 6px;">
+                      Gateway Txn: <code>{{ b['escrow_tx_id'] or 'ESCR-UPI-SETTLED' }}</code> &middot; RBI Nodal Account: <code>COOP-VAULT-HYD-09</code>
+                    </div>
                   </div>
                   <button class="btn btn-sm btn-secondary" type="button" onclick="openRateForm('{{ b['id'] }}')">⭐ Rate Technician</button>
                 {% else %}
                   <div style="margin-top: 12px; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: var(--radius-md); padding: 14px 16px;">
                     <div style="font-weight: 700; color: #065F46; font-size: 14px; margin-bottom: 4px;">
-                      ✓ Job Completed by Worker &middot; Fee Due: &#8377;{{ b['price'] }}
+                      ✓ Job Verified by OTP &middot; Escrow Settlement Complete
                     </div>
                     <div style="font-size: 12.5px; color: #047857; margin-bottom: 12px;">
-                      The completion OTP was authenticated. Please inspect the completed work and pay &#8377;{{ b['price'] }} via UPI.
+                      Escrow funds have been successfully disbursed to the worker's account and welfare wallet.
                     </div>
-                    <div style="display: flex; gap: 8px;">
-                      <form method="POST" action="{{ url_for('customer_pay', booking_id=b['id']) }}">
-                        <button class="btn btn-sm btn-primary" type="submit">💳 Pay &#8377;{{ b['price'] }} via UPI</button>
-                      </form>
-                      <button class="btn btn-sm btn-ghost" type="button" onclick="openRateForm('{{ b['id'] }}')">⭐ Rate</button>
-                    </div>
+                    <button class="btn btn-sm btn-ghost" type="button" onclick="openRateForm('{{ b['id'] }}')">⭐ Rate Service</button>
                   </div>
                 {% endif %}
 
@@ -658,6 +737,10 @@
           banner.style.display = 'flex';
           display.innerHTML = `&#8377;${task.min} &ndash; &#8377;${task.max}`;
         }
+        const escrowInput = document.getElementById('escrow-amount-input');
+        if (escrowInput) {
+          escrowInput.value = task.min;
+        }
       };
       container.appendChild(chip);
     });
@@ -681,6 +764,13 @@
 
   function openRateForm(id) {
     const form = document.getElementById('rate-form-' + id);
+    if (form) {
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+  }
+
+  function toggleDisputeForm(id) {
+    const form = document.getElementById('dispute-form-' + id);
     if (form) {
       form.style.display = form.style.display === 'none' ? 'block' : 'none';
     }

@@ -326,6 +326,22 @@ Customer feedback and rating records.
 - `comment` (TEXT): Optional customer feedback text.
 - `created_at` (TEXT, NOT NULL): Review submission timestamp.
 
+### Table 7: `escrow_transactions`
+Auditable ledger of milestone escrow funds locked in the RBI-compliant cooperative nodal lockbox.
+- `id` (TEXT, PK): Unique escrow transaction UUID.
+- `booking_id` (TEXT, NOT NULL, UNIQUE, FK -> `bookings(id)`): Associated booking.
+- `customer_id` (TEXT, NOT NULL, FK -> `users(id)`): Depositing customer.
+- `worker_id` (TEXT, FK -> `workers(id)`): Beneficiary technician.
+- `amount` (REAL, NOT NULL): Locked escrow amount in ₹.
+- `gateway_name` (TEXT, NOT NULL, DEFAULT 'UPI'): Payment rail (UPI, RuPay, NetBanking).
+- `gateway_tx_id` (TEXT, NOT NULL): Bank mandate reference (e.g., `ESCR-UPI-76777431`).
+- `status` (TEXT, NOT NULL, DEFAULT 'held'): Escrow state ('held', 'released', 'disputed', 'refunded').
+- `held_at` (TEXT, NOT NULL): Timestamp when funds were debited and locked.
+- `released_at` (TEXT): Timestamp when released to worker via OTP or conciliation.
+- `dispute_reason` (TEXT): Reason stated if escrow was contested.
+- `dispute_opened_by` (TEXT): Submitting party (`'customer'` or `'worker'`).
+- `resolution_notes` (TEXT): Notes logged by Federation Officer upon arbitration.
+
 ---
 
 ## 6. The 10 NCCT Service Categories
@@ -448,6 +464,9 @@ $$\text{New Average} = \operatorname{round}\left(\frac{\text{Rating}_{\text{old}
 | `GET` | `/admin/verify/worker/<id>` | Admin | Route parameter `worker_id` | Dedicated Federation Field Officer Verification inspection view. |
 | `POST` | `/admin/verify/worker/<id>/approve` | Admin | `officer_remarks` | Approves all 4 pillars, records officer endorsement, and issues Cooperative Passport. |
 | `POST` | `/admin/verify/worker/<id>/reject` | Admin | `officer_remarks` | Flags deficiencies and requests candidate correction/re-inspection. |
+| `POST` | `/customer/dispute/<id>` | Customer | `reason` | Freezes escrow funds under federation conciliation if service is contested. |
+| `POST` | `/worker/dispute/<id>` | Worker | `reason` | Escalates dispute to federation officer if customer maliciously withholds OTP. |
+| `POST` | `/admin/escrow/resolve/<id>` | Admin | `action`, `resolution_notes` | Arbitrates disputed escrow: releases 87/5/8 split to worker OR issues refund to customer. |
 | `POST` | `/admin/verify/<id>` | Admin | Route parameter `worker_id` | Quick-approves 4 pillars and activates cold-start boost. |
 
 ---
@@ -582,11 +601,12 @@ To eliminate algorithmic exploitation and ensure complete transparency, Sahayog 
 - **Linguistic Precision**: Customer selects communication language; only workers fluent in that language are matched.
 - **Reciprocal Credentials**: Upon booking match, synchronized credentials (name, phone, GPS pin, federation badge) are shared simultaneously with both customer and worker.
 
-### 4. Union-Regulated Pricing & Post-Work Settlement Engine (Zero Upfront Escrow)
-- **Zero Advance Required (Pay-After-Service)**: Eliminates customer friction and upfront fund lock-in. Customers pay only after inspecting completed workmanship on-site.
+### 4. Cooperative Milestone Escrow System & Dispute Conciliation Engine
+- **Upfront Escrow Lockbox**: Customer deposit (standard union tariff or subtask cost) is secured in the RBI-compliant Cooperative Nodal Escrow Vault upon booking creation (`escrow_status = 'held'`).
+- **Guaranteed Worker Dispatch**: Dispatched workers receive immediate confirmation of funds locked in escrow, eliminating payment default risk and unpaid travel.
+- **Mutual 4-Digit OTP Milestone Release**: Work completion is authenticated on-site with a customer-held 4-digit OTP. Submitting the code triggers instant automated settlement: 87% Direct Worker Payout, 5% Worker Welfare Wallet (health/insurance/pension), and 8% Federation Commission.
+- **Dual-Party Dispute Conciliation Desk**: Customers or workers can freeze escrow under conciliation. The Federation Conciliation Officer inspects work evidence and GPS audit timestamps, arbitrating with 1-click "Release to Worker" or "Refund to Customer".
 - **Cooperative Rate Cards**: Transparent tariffs determined in consultation with District Labour Unions (₹250 base inspection + ₹150/hr ceiling); zero arbitrary surge pricing.
-- **Mutual 4-Digit OTP Completion Authentication**: Work completion is verified on-site using a customer-held 4-digit OTP to authenticate job delivery before payment is billed.
-- **Direct Cooperative Split**: Upon post-work payment via UPI, funds are automatically distributed: 87% Direct Worker Payout, 5% Worker Welfare Fund (health/insurance/pension), and 8% Federation Operations.
 
 ### 5. 22 Official Languages & Micro-Task Expansion
 - **Constitutional Linguistic Inclusivity**: Covers all 22 Eighth Schedule Indian languages natively with vernacular audio read-outs.
@@ -616,6 +636,7 @@ When making changes to the codebase:
 
 | Version | Date | Changes Summary | Author / Agent |
 |---|---|---|---|
+| **v2.2.0** | 2026-09-12 | Cooperative Milestone Escrow System & Dispute Conciliation Engine. Implemented RBI-compliant upfront escrow deposits locked into the Cooperative Nodal Vault upon booking dispatch (`escrow_transactions`). Integrated tamper-proof 4-digit mutual completion OTP verification triggering instant automated 87% worker payout, 5% welfare wallet credit, and 8% federation fee settlement. Built customer & worker dispute escalation workflows and Federation Admin Dispute Conciliation Desk with 1-click arbitration (Release to Worker / Refund to Customer). Added Escrow Vault telemetry and complete audit ledger. | Antigravity AI & Sahayog Team |
 | **v2.1.0** | 2026-09-12 | Federation (Admin & Governance) Control Center Overhaul. Implemented 5-tab Command Navigator (`#pane-telemetry`, `#pane-verification`, `#pane-forecasting`, `#pane-welfare`, `#pane-retraining`). Built Central Fleet & Regional Cluster Leaflet Map with live worker status pins (available/in-service/reviewing) and Hyderabad/Pune cluster focus. Added 5% Worker Welfare Fund Disbursal Desk with emergency medical and educational micro-grants, complete financial settlement ledger (87% worker / 5% welfare / 8% federation), and NCCT Quality Gate for worker retraining and fair recertification. | Antigravity AI & Sahayog Team |
 | **v2.0.0** | 2026-09-12 | Tabbed Customer Dashboard & Balanced Studio Layout Overhaul. Replaced the uneven, vertically misaligned 50/50 split with a sleek, modern tabbed interface (`#pane-book` and `#pane-bookings`). Restructured the Booking Studio into a balanced 2-column studio (Left: trade category visual tiles, union rate drawer, description, and language chips; Right: geolocation toolbar, Leaflet map with 2.5 km geofence, coordinates inputs, emergency toggle, and primary dispatch button). Added active booking notification pill, URL hash synchronization (`#book` and `#bookings`), Leaflet `map.invalidateSize()` on tab switch, and automated post-booking/payment/rating redirection directly to the service tracker. | Antigravity AI & Sahayog Team |
 | **v1.9.0** | 2026-09-11 | Built Detailed Worker Verification Portal & Smart Digital ID Card (`/worker/verification`) and Federation Field Officer Verification Desk (`/admin/verify/worker/<id>`). Implemented granular verification attributes (legal name, DOB, NSQF level, certification year, referee phone, CCTNS PCC number, itemized tool-kit inventory, officer remarks, and unique Cooperative ID `SHY-COOP-HYD-XXXXX`). Added printable Smart Card with microchip styling, DigiLocker credentials preview, and formal approval/rejection workflows. | Antigravity AI & Sahayog Team |
