@@ -26,7 +26,7 @@
         <div class="stat-num">
           {% if profile['verified'] %}<span style="color:#A7F3D0;">✓ Verified</span>{% else %}<span style="color:#FECACA;">Pending</span>{% endif %}
         </div>
-        <div class="stat-lbl">NCCT Certification</div>
+        <div class="stat-lbl">Accreditation</div>
       </div>
     </div>
   </div>
@@ -59,10 +59,10 @@
 
           <div class="pillar-box" style="background:#FFFFFF; border-color:#FDE68A;">
             <div class="pillar-title" style="color:#065F46;">
-              <span>✓</span> Pillar 2: NCCT / Craft Credential
+              <span>✓</span> Pillar 2: Craft &amp; Skill Credential
             </div>
             <div style="font-size: 12.5px; color: var(--color-ink);">
-              {{ profile['cert_type'] or 'NCCT Certification' }}: <strong>{{ profile['cert_id'] or 'Pending' }}</strong>
+              {{ profile['cert_type'] or 'Trade Certification' }}: <strong>{{ profile['cert_id'] or 'Pending' }}</strong>
             </div>
           </div>
 
@@ -103,7 +103,7 @@
               <span>🛡️</span> Complete 4-Pillar Cooperative Accreditation Gate
             </h3>
             <span class="help-text" style="margin-top: 4px; display:block;">
-              Under Ministry of Cooperation &amp; NCCT SIH26089 standards, all workers must verify their identity and craft tools before receiving customer dispatch alerts.
+              Under cooperative federation standards, all workers must verify their identity and craft tools before receiving customer dispatch alerts.
             </span>
           </div>
           <span class="badge badge-unverified">Accreditation Locked</span>
@@ -134,7 +134,7 @@
               <div class="field" style="margin-bottom: 6px;">
                 <label style="font-size: 11.5px;">Accreditation Pathway</label>
                 <select name="cert_type" required style="font-size: 12px; padding: 6px 10px;">
-                  <option value="NCCT Master Craftsman">NCCT Master Craftsman Certification</option>
+                  <option value="Certified Master Craftsman">Certified Master Craftsman Certification</option>
                   <option value="Skill India Digital (SID)">Skill India Digital (SID) Verified</option>
                   <option value="State Labour Board (SSDM)">State Skill Development Mission (Level 4)</option>
                   <option value="Cooperative Guild Recommendation">Master Craftsman Guild Recommendation Letter</option>
@@ -142,7 +142,7 @@
               </div>
               <div class="field" style="margin-bottom: 0;">
                 <label style="font-size: 11.5px;">Certificate / Guild ID</label>
-                <input type="text" name="cert_id" placeholder="e.g. NCCT-2026-HYD-4819" required style="font-size: 12px; padding: 6px 10px;" />
+                <input type="text" name="cert_id" placeholder="e.g. COOP-2026-HYD-4819" required style="font-size: 12px; padding: 6px 10px;" />
               </div>
             </div>
 
@@ -203,7 +203,7 @@
             COOPERATIVE ACCREDITATION PASSPORT
           </div>
           <div style="font-size: 15px; font-weight: 800; color: #065F46;">
-            Certified Cooperative Master Craftsman &middot; {{ profile['cert_id'] or 'NCCT-HYD-2025-091' }}
+            Certified Cooperative Master Craftsman &middot; {{ profile['cert_id'] or 'COOP-HYD-2025-091' }}
           </div>
           <div style="font-size: 12px; color: #047857; margin-top: 2px;">
             Aadhaar e-KYC Verified &middot; Ref: {{ profile['peer_reference'] or 'Hyderabad Labour Federation' }} &middot; Tools Inspected

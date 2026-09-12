@@ -18,7 +18,7 @@
   <div class="verification-portal-hero" style="background: linear-gradient(135deg, #064E3B 0%, #065F46 60%, #047857 100%) !important; color: #FFFFFF !important; border-radius: 14px; padding: 28px 32px; margin-bottom: 24px; box-shadow: 0 10px 25px -5px rgba(6, 78, 59, 0.3); position: relative; overflow: hidden;">
     <div style="max-width: 680px; position: relative; z-index: 2;">
       <div style="font-size: 11.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #A7F3D0 !important; margin-bottom: 6px;">
-        MINISTRY OF COOPERATION &middot; NCCT ACCREDITATION DESK
+        COOPERATIVE ACCREDITATION DESK
       </div>
       <h1 style="font-size: 26px; font-weight: 800; margin: 0 0 8px; color: #FFFFFF !important; font-family: var(--font-display); text-shadow: 0 1px 2px rgba(0,0,0,0.2);">
         Cooperative Craftsman 4-Pillar Verification Portal 🛡️
@@ -123,13 +123,13 @@
           </div>
         </div>
 
-        <!-- PILLAR 2: NCCT / SKILL CERTIFICATION -->
+        <!-- PILLAR 2: TRADE & SKILL CERTIFICATION -->
         <div class="pillar-detail-card {{ 'active-pillar' if profile['cert_id'] }}">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 20px;">📜</span>
               <div>
-                <h3 style="font-size: 15px; margin: 0; color: var(--color-primary-dark);">Pillar 2: NCCT &amp; Technical Trade Certification</h3>
+                <h3 style="font-size: 15px; margin: 0; color: var(--color-primary-dark);">Pillar 2: Technical Trade Certification</h3>
                 <span style="font-size: 11.5px; color: var(--color-muted);">Accredited vocational credentials &amp; skill grade</span>
               </div>
             </div>
@@ -143,8 +143,8 @@
           <div class="field" style="margin-bottom: 12px;">
             <label style="font-size: 11.5px;">Accreditation Pathway</label>
             <select name="cert_type" required style="font-size: 13px;">
-              <option value="NCCT Master Craftsman" {% if profile['cert_type'] == 'NCCT Master Craftsman' %}selected{% endif %}>
-                NCCT Master Craftsman (Ministry of Cooperation)
+              <option value="Certified Master Craftsman" {% if profile['cert_type'] == 'Certified Master Craftsman' %}selected{% endif %}>
+                Certified Master Craftsman (Cooperative Federation)
               </option>
               <option value="Skill India Digital (SID)" {% if profile['cert_type'] == 'Skill India Digital (SID)' %}selected{% endif %}>
                 Skill India Digital (SID) Verified Technician
@@ -323,7 +323,7 @@
                   SAHAYOG LABOUR COOPERATIVE FEDERATION
                 </div>
                 <div style="font-size: 9px; opacity: 0.8; color: #CBD5E1 !important;">
-                  NCCT Accredited Worker Identity Card
+                  Cooperative Accredited Worker Identity Card
                 </div>
               </div>
               <div class="coop-chip" style="width: 36px; height: 26px; background: linear-gradient(135deg, #FCD34D 0%, #D97706 100%); border-radius: 5px; border: 1px solid #78350F; position: relative;"></div>
@@ -353,7 +353,7 @@
             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.15); padding-top: 10px; font-size: 10px;">
               <div>
                 <div style="opacity: 0.7; color: #CBD5E1 !important;">ACCREDITATION</div>
-                <div style="font-weight: 700; color: #FCD34D !important;">{{ profile['cert_type'] or 'NCCT Master Craftsman' }}</div>
+                <div style="font-weight: 700; color: #FCD34D !important;">{{ profile['cert_type'] or 'Certified Master Craftsman' }}</div>
               </div>
               <div class="coop-qr-box" style="background: #FFFFFF; padding: 6px; border-radius: 6px; display: inline-block; border: 1px solid #E2E8F0;">
                 <div style="font-size: 18px; line-height: 1;">🏁</div>

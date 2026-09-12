@@ -99,7 +99,7 @@
       <table class="audit-table">
         <tr>
           <td style="width: 40%; color: var(--color-muted);">Certifying Body:</td>
-          <td><strong>{{ worker['cert_type'] or 'NCCT Master Craftsman' }}</strong></td>
+          <td><strong>{{ worker['cert_type'] or 'Certified Master Craftsman' }}</strong></td>
         </tr>
         <tr>
           <td style="color: var(--color-muted);">Certificate Roll ID:</td>
@@ -207,7 +207,7 @@
     <form method="POST" action="{{ url_for('admin_worker_approve', worker_id=worker['id']) }}" style="margin-bottom: 16px;">
       <div class="field" style="margin-bottom: 14px;">
         <label style="font-weight: 700; font-size: 12.5px;">Federation Officer Inspection Notes / Endorsement</label>
-        <textarea name="officer_remarks" rows="2" style="width: 100%; font-size: 13px; border: 1px solid #CBD5E1; border-radius: 6px; padding: 10px;">{{ worker['officer_remarks'] or 'Passed physical trade audit and tool inspection at Hyderabad Central Guild. All 4 Pillars verified under NCCT cooperative guidelines.' }}</textarea>
+        <textarea name="officer_remarks" rows="2" style="width: 100%; font-size: 13px; border: 1px solid #CBD5E1; border-radius: 6px; padding: 10px;">{{ worker['officer_remarks'] or 'Passed physical trade audit and tool inspection at Hyderabad Central Guild. All 4 Pillars verified under cooperative guidelines.' }}</textarea>
       </div>
 
       <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">

@@ -13,7 +13,7 @@
   <div class="dashboard-hero">
     <div>
       <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--color-accent-border); margin-bottom: 4px;">
-        MINISTRY OF COOPERATION &middot; NCCT REGIONAL GOVERNANCE DESK
+        COOPERATIVE FEDERATION REGIONAL GOVERNANCE DESK
       </div>
       <h1>Cooperative Federation Governance Console 🏛️</h1>
       <p>Oversee regional workforce accreditation, monitor central fleet distribution, and manage the 5% worker welfare pool.</p>
@@ -299,12 +299,12 @@
       </div>
     {% endif %}
 
-    <!-- MASTER WORKER ROSTER (WITH NCCT RETRAINING ACTIONS) -->
+    <!-- MASTER WORKER ROSTER -->
     <div class="card" style="padding: 24px;">
       <div class="card-header-row">
         <div>
           <h3>👥 Master Cooperative Worker Roster</h3>
-          <span class="help-text" style="margin:0;">Complete technician directory with accreditation passport, NCCT quality status, and welfare balances.</span>
+          <span class="help-text" style="margin:0;">Complete technician directory with accreditation passport, skill quality status, and welfare balances.</span>
         </div>
         <span class="badge badge-verified">{{ all_workers|length }} Total Registered</span>
       </div>
@@ -318,7 +318,7 @@
               <th>Accreditation Passport</th>
               <th>Rating Benchmark</th>
               <th>Welfare Wallet</th>
-              <th>NCCT Quality / Action</th>
+              <th>Quality / Action</th>
             </tr>
           </thead>
           <tbody>
@@ -358,9 +358,9 @@
                     </form>
                   {% elif w['rating_count'] and w['rating'] < 4.0 %}
                     <form method="POST" action="{{ url_for('admin_worker_retrain', worker_id=w['id']) }}" style="display:inline;">
-                      <input type="hidden" name="module" value="NCCT Refresher Module" />
+                      <input type="hidden" name="module" value="Skill Refresher Module" />
                       <button type="submit" class="btn btn-sm btn-secondary" style="font-size: 11px; padding: 3px 8px;">
-                        🎓 Assign NCCT
+                        🎓 Assign Refresher
                       </button>
                     </form>
                   {% else %}
