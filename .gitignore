@@ -3,3 +3,6 @@ __pycache__/
 data/sahayog.db
 .env
 .venv/
+.vercel/
+
+.vercel

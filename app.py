@@ -28,6 +28,15 @@ from translations import translate
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "sahayog-dev-secret-change-in-production")
 
+# Ensure database tables and runtime migrations exist on cold start (essential for Vercel/serverless)
+try:
+    init_db()
+except Exception:
+    pass
+
+# WSGI handler alias for serverless deployment
+handler = app
+
 # Cooperative economics: every payment is split three ways. Named constants,
 # not logic buried elsewhere, so a federation admin could tune them easily.
 FEDERATION_COMMISSION_PCT = 0.08   # 8% retained by the cooperative federation

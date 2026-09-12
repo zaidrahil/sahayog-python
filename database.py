@@ -16,8 +16,18 @@ Why SQLite?
 
 import sqlite3
 import os
+import shutil
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "data", "sahayog.db")
+if os.environ.get("VERCEL"):
+    DB_PATH = "/tmp/sahayog.db"
+    bundled_db = os.path.join(os.path.dirname(__file__), "data", "sahayog.db")
+    if not os.path.exists(DB_PATH) and os.path.exists(bundled_db):
+        try:
+            shutil.copy2(bundled_db, DB_PATH)
+        except Exception:
+            pass
+else:
+    DB_PATH = os.path.join(os.path.dirname(__file__), "data", "sahayog.db")
 
 
 def get_connection():
@@ -315,6 +325,71 @@ def init_db():
                    VALUES (?, ?, ?, ?, ?, 'UPI', ?, ?, ?, ?)""",
                 (f"escrow-{b['id'][:8]}", b["id"], b["customer_id"], b["worker_id"], escrow_amt, tx_id, st, b["created_at"], rel_at)
             )
+
+    # Auto-seed baseline demo accounts if brand new database
+    user_count = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
+    if user_count == 0:
+        import uuid
+        from datetime import datetime
+        from werkzeug.security import generate_password_hash
+
+        def new_id():
+            return uuid.uuid4().hex
+
+        now_str = datetime.now().isoformat()
+        fed1 = new_id()
+        fed2 = new_id()
+        conn.execute("INSERT INTO federations (id, name, state) VALUES (?, ?, ?)",
+                     (fed1, "Hyderabad Labour Cooperative Federation", "Telangana"))
+        conn.execute("INSERT INTO federations (id, name, state) VALUES (?, ?, ?)",
+                     (fed2, "Pune Sahakari Seva Sangh", "Maharashtra"))
+
+        # Admin
+        conn.execute(
+            "INSERT INTO users (id, role, name, phone, password_hash, language, created_at) "
+            "VALUES (?, 'admin', 'Federation Admin', '9000000000', ?, 'en', ?)",
+            (new_id(), generate_password_hash("admin123"), now_str),
+        )
+
+        # Ramesh Kumar (Verified Electrician)
+        u_ramesh = new_id()
+        w_ramesh = new_id()
+        conn.execute(
+            "INSERT INTO users (id, role, name, phone, password_hash, language, created_at) "
+            "VALUES (?, 'worker', 'Ramesh Kumar', '9111111111', ?, 'en', ?)",
+            (u_ramesh, generate_password_hash("worker123"), now_str),
+        )
+        conn.execute(
+            """INSERT INTO workers
+               (id, user_id, skills, federation_id, verified, certified, rating,
+                rating_count, lat, lng, available, welfare_wallet, spoken_languages, created_at)
+               VALUES (?, ?, 'electrician,technician', ?, 1, 1, 4.8, 24, 17.4483, 78.3915, 1, 350.0, 'en,hi,te', ?)""",
+            (w_ramesh, u_ramesh, fed1, now_str),
+        )
+
+        # Mahesh Yadav (Unverified Worker)
+        u_mahesh = new_id()
+        w_mahesh = new_id()
+        conn.execute(
+            "INSERT INTO users (id, role, name, phone, password_hash, language, created_at) "
+            "VALUES (?, 'worker', 'Mahesh Yadav', '9111111115', ?, 'en', ?)",
+            (u_mahesh, generate_password_hash("worker123"), now_str),
+        )
+        conn.execute(
+            """INSERT INTO workers
+               (id, user_id, skills, federation_id, verified, certified, rating,
+                rating_count, lat, lng, available, welfare_wallet, spoken_languages, created_at)
+               VALUES (?, ?, 'plumber,carpenter', ?, 0, 0, 0.0, 0, 17.4126, 78.4482, 1, 0.0, 'en,hi', ?)""",
+            (w_mahesh, u_mahesh, fed1, now_str),
+        )
+
+        # Priya Sharma (Customer)
+        u_priya = new_id()
+        conn.execute(
+            "INSERT INTO users (id, role, name, phone, password_hash, language, created_at) "
+            "VALUES (?, 'customer', 'Priya Sharma', '9333333331', ?, 'en', ?)",
+            (u_priya, generate_password_hash("customer123"), now_str),
+        )
 
     conn.commit()
     conn.close()
